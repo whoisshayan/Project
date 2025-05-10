@@ -1,77 +1,191 @@
 import javafx.application.Application;
+import javafx.geometry.Point2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.control.Slider;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.Pane;
-import javafx.scene.media.MediaPlayer;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
-import java.io.File;
-import javafx.scene.media.Media;
-
+import java.util.List;
 
 public class test extends Application {
 
-    @Override
-    public void start(Stage stage) throws Exception {
-        String path="C:/Users/shaya/Desktop/song/Shervin-hajiaghapoor.Bahar-omad(320).mp3";
-        File file=new File(path);
-        if(!file.exists())
-            System.out.println("Not Ok!");
-        String url=file.toURI().toString();
-        Media media =new Media(url);
-        MediaPlayer mediaPlayer=new MediaPlayer(media);
-        mediaPlayer.setAutoPlay(false);
+    private Circle startCircle = null;
+    private Rectangle startSmallRect = null;
+    private Line currentLine = null;
 
-        // PlatButton
-        Button playbutton=new Button("Play");
-        playbutton.setOnAction(actionEvent -> mediaPlayer.play());
-        playbutton.setLayoutX(200);
-        playbutton.setLayoutY(150);
-        playbutton.setPrefWidth(100);
+    private List<Circle> circles;
+    private List<Rectangle> smallRects;
+    private Pane root;
 
-        // SettingButton
-        Button settingbutton=new Button("Setting");
-        settingbutton.setLayoutX(200);
-        settingbutton.setLayoutY(200);
-        settingbutton.setPrefWidth(100);
-
-        // PauseButton
-        Button pausebutton=new Button("Pause");
-        pausebutton.setOnAction(actionEvent -> mediaPlayer.pause());
-        pausebutton.setLayoutX(200);
-        pausebutton.setLayoutY(250);
-        pausebutton.setPrefWidth(100);
-
-        // Slider
-        Slider volumeSlider = new Slider(0, 1, 0.5);
-        volumeSlider.setShowTickLabels(true);
-        volumeSlider.setShowTickMarks(true);
-        volumeSlider.setMajorTickUnit(0.25);
-        volumeSlider.setBlockIncrement(0.1);
-        volumeSlider.valueProperty().addListener((obs, oldVal, newVal) ->
-                mediaPlayer.setVolume(newVal.doubleValue())
-        );
-        mediaPlayer.setVolume(volumeSlider.getValue());
-        volumeSlider.setLayoutX(180);
-        volumeSlider.setLayoutY(200);
-
-        Button backbutton=new Button("Back");
-        backbutton.setLayoutX(400);
-        backbutton.setLayoutY(400);
-
-        Pane root=new Pane(pausebutton,playbutton,settingbutton);
-        Pane settingpane=new Pane(backbutton,volumeSlider);
-
-        Scene mainscene=new Scene(root,500,500);
-        Scene settingscene=new Scene(settingpane,500,500);
-
-        settingbutton.setOnAction(actionEvent -> stage.setScene(settingscene));
-        backbutton.setOnAction(actionEvent -> stage.setScene(mainscene));
-        stage.setScene(mainscene);
-        stage.show();
-    }
 
     public static void main(String[] args) {
         launch(args);
+    }
+
+    @Override
+    public void start(Stage stage) {
+        root = new Pane();
+
+        Rectangle mainrect = new Rectangle(50, 100, 100, 200);
+        mainrect.setFill(Color.CORAL);
+        mainrect.setStroke(Color.BLACK);
+        mainrect.setStrokeWidth(2);
+        mainrect.setArcWidth(20);
+        mainrect.setArcHeight(20);
+
+        Circle circle = new Circle(150, 140, 10);
+        circle.setFill(Color.LIGHTGREEN);
+        circle.setStroke(Color.DARKGREEN);
+        circle.setStrokeWidth(3);
+
+        Rectangle littlerec = new Rectangle(145, 220, 10, 20);
+        littlerec.setFill(Color.GREEN);
+        littlerec.setStroke(Color.BLACK);
+        littlerec.setStrokeWidth(2);
+        littlerec.setArcWidth(2);
+        littlerec.setArcHeight(2);
+
+        Rectangle mainrect2 = new Rectangle(300, 200, 100, 200);
+        mainrect2.setFill(Color.CORAL);
+        mainrect2.setStroke(Color.BLACK);
+        mainrect2.setStrokeWidth(2);
+        mainrect2.setArcWidth(20);
+        mainrect2.setArcHeight(20);
+
+        Circle circle2 = new Circle(300, 240, 10);
+        circle2.setFill(Color.LIGHTGREEN);
+        circle2.setStroke(Color.DARKGREEN);
+        circle2.setStrokeWidth(3);
+
+        Rectangle littlerec2 = new Rectangle(295, 320, 10, 20);
+        littlerec2.setFill(Color.GREEN);
+        littlerec2.setStroke(Color.BLACK);
+        littlerec2.setStrokeWidth(2);
+        littlerec2.setArcWidth(2);
+        littlerec2.setArcHeight(2);
+
+        root.getChildren().addAll(
+                mainrect, circle, littlerec,
+                mainrect2, circle2, littlerec2
+        );
+
+        Button startbutton=new Button("Start");
+        startbutton.setLayoutX(81);
+        startbutton.setLayoutY(88);
+        root.getChildren().add(startbutton);
+
+
+        circles = List.of(circle, circle2);
+        smallRects = List.of(littlerec, littlerec2);
+
+        for (Circle c : circles) {
+            c.setOnMousePressed(this::onStartWireFromCircle);
+        }
+        for (Rectangle r : smallRects) {
+            r.setOnMousePressed(this::onStartWireFromSmallRect);
+        }
+
+        root.setOnMouseDragged(this::onDragWire);
+        root.setOnMouseReleased(this::onReleaseWire);
+
+        Scene scene = new Scene(root, 700, 600);
+        stage.setScene(scene);
+        stage.setTitle("Wire Drawing Without Groups");
+        stage.show();
+    }
+
+    private void onStartWireFromCircle(MouseEvent e) {
+        startCircle = (Circle) e.getSource();
+        startSmallRect = null;
+
+        Point2D p = startCircle.localToScene(
+                startCircle.getCenterX(),
+                startCircle.getCenterY()
+        );
+        currentLine = new Line(
+                p.getX(), p.getY(),
+                e.getSceneX(), e.getSceneY()
+        );
+        currentLine.setStrokeWidth(2);
+        root.getChildren().add(currentLine);
+        e.consume();
+    }
+
+    private void onStartWireFromSmallRect(MouseEvent e) {
+        startSmallRect = (Rectangle) e.getSource();
+        startCircle = null;
+
+        double centerX = startSmallRect.getX() + startSmallRect.getWidth()/2;
+        double centerY = startSmallRect.getY() + startSmallRect.getHeight()/2;
+        Point2D p = startSmallRect.localToScene(centerX, centerY);
+        currentLine = new Line(
+                p.getX(), p.getY(),
+                e.getSceneX(), e.getSceneY()
+        );
+        currentLine.setStrokeWidth(2);
+        root.getChildren().add(currentLine);
+        e.consume();
+    }
+
+    private void onDragWire(MouseEvent e) {
+        if (currentLine != null) {
+            currentLine.setEndX(e.getSceneX());
+            currentLine.setEndY(e.getSceneY());
+        }
+    }
+
+    private void onReleaseWire(MouseEvent e) {
+        if (currentLine == null) return;
+
+        boolean connected = false;
+
+        if (startCircle != null) {
+            for (Circle c : circles) {
+                if (c != startCircle) {
+                    Point2D center = c.localToScene(c.getCenterX(), c.getCenterY());
+                    double dx = center.getX() - e.getSceneX();
+                    double dy = center.getY() - e.getSceneY();
+                    if (Math.hypot(dx, dy) <= c.getRadius()) {
+                        currentLine.setEndX(center.getX());
+                        currentLine.setEndY(center.getY());
+                        connected = true;
+                        break;
+                    }
+                }
+            }
+        }
+        else if (startSmallRect != null) {
+            Point2D scenePt = new Point2D(e.getSceneX(), e.getSceneY());
+
+            for (Rectangle r : smallRects) {
+                if (r == startSmallRect) continue;
+
+                double cx = r.getX() + r.getWidth()/2;
+                double cy = r.getY() + r.getHeight()/2;
+                Point2D center = r.localToScene(cx, cy);
+
+                Point2D localPt = r.sceneToLocal(scenePt);
+
+                if (r.contains(localPt)) {
+                    currentLine.setEndX(center.getX());
+                    currentLine.setEndY(center.getY());
+                    connected = true;
+                    break;
+                }
+            }
+        }
+
+        if (!connected) {
+            root.getChildren().remove(currentLine);
+        }
+
+        currentLine = null;
+        startCircle = null;
+        startSmallRect = null;
+        e.consume();
     }
 }

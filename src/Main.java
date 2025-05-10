@@ -107,7 +107,7 @@ public class Main extends Application {
         root.getChildren().add(bgView);
         root.getChildren().addAll(startButton, levelButton, settingButton, exitButton);
         root.getChildren().addAll(line1, line2);
-        Scene mainScene = new Scene(root, 700, 600);
+        Scene menuScene = new Scene(root, 700, 600);
 
         // =============== SECOND SCENE (SETTINGS) ===============
 
@@ -117,7 +117,7 @@ public class Main extends Application {
         backButton.setLayoutY(465);
         backButton.setPrefSize(120, 50);
         backButton.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 16px;");
-        backButton.setOnAction(e -> primaryStage.setScene(mainScene));
+        backButton.setOnAction(e -> primaryStage.setScene(menuScene));
         backButton.setOnMouseEntered(e -> backButton.setEffect(shadow));
         backButton.setOnMouseExited(e -> backButton.setEffect(null));
 
@@ -168,8 +168,17 @@ public class Main extends Application {
         settingButton.setOnAction(e -> primaryStage.setScene(settingScene));
 
         // Launch the main scene
-        primaryStage.setTitle("Main Menu");
-        primaryStage.setScene(mainScene);
+        Pane mainRoot =new Pane();
+        Scene mainScene =new Scene(mainRoot,700,600);
+        startButton.setOnAction(actionEvent -> primaryStage.setScene(mainScene));
+        Button shopButton=new Button("Shop");
+        Button menuButton=new Button("Menu");
+        mainRoot.getChildren().add(menuButton);
+        mainRoot.getChildren().add(shopButton);
+
+        // Launch the main scene
+        primaryStage.setTitle("BluePrint Hell");
+        primaryStage.setScene(menuScene);
         primaryStage.show();
     }
 
