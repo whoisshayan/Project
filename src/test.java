@@ -68,6 +68,23 @@ public class test extends Application {
         littlerec2.setArcWidth(2);
         littlerec2.setArcHeight(2);
 
+        Rectangle littlerec3 = new Rectangle(395, 320, 10, 20);
+        littlerec3.setFill(Color.GREEN);
+        littlerec3.setStroke(Color.BLACK);
+        littlerec3.setStrokeWidth(2);
+        littlerec3.setArcWidth(2);
+        littlerec3.setArcHeight(2);
+        root.getChildren().add(littlerec3);
+
+        Rectangle endRec=new Rectangle(495, 320, 10, 20);
+        endRec.setFill(Color.GREEN);
+        endRec.setStroke(Color.BLACK);
+        endRec.setStrokeWidth(2);
+        endRec.setArcWidth(2);
+        endRec.setArcHeight(2);
+        root.getChildren().add(endRec);
+
+
         root.getChildren().addAll(
                 mainrect, circle, littlerec,
                 mainrect2, circle2, littlerec2

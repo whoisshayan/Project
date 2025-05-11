@@ -5,11 +5,14 @@ import javafx.geometry.Point2D;
 import javafx.scene.Group;
 import javafx.scene.control.Slider;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.StackPane;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.text.FontPosture;
+import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -278,12 +281,111 @@ public class Main extends Application {
                 tt.play();
             }
         });
+        Rectangle upRectangle=new Rectangle(0,0,900,115);
+        upRectangle.setArcWidth(30);
+        upRectangle.setArcHeight(30);
+        upRectangle.setFill(Color.web("#663399"));
+        upRectangle.setStroke(Color.BLACK);
+        upRectangle.setStrokeWidth(2);
+        mainRoot.getChildren().add(upRectangle);
+
+        // Remaining Wire
+        Rectangle remainingWireBox=new Rectangle(100,8,120,100);
+        remainingWireBox.setFill(Color.PURPLE);
+        remainingWireBox.setArcWidth(10);
+        remainingWireBox.setArcHeight(10);
+        Text remainingWireText = new Text("Remainingn\n     Wire:");
+        remainingWireText.setLayoutX(106);
+        remainingWireText.setLayoutY(40);
+        remainingWireText.setFont(Font.font("Verdana", FontWeight.BOLD, FontPosture.ITALIC, 16));
+        remainingWireText.setFill(Color.web("#FFE4E1"));  // MistyRose
+        DropShadow ds = new DropShadow();
+        ds.setOffsetY(3.0);
+        ds.setOffsetX(3.0);
+        ds.setColor(Color.color(0, 0, 0, 0.4));
+        remainingWireText.setEffect(ds);
+        mainRoot.getChildren().addAll(remainingWireBox,remainingWireText);
+
+        // Time Progress
+        Rectangle timeProgressBox=new Rectangle(300,8,120,100);
+        timeProgressBox.setFill(Color.PURPLE);
+        timeProgressBox.setArcWidth(10);
+        timeProgressBox.setArcHeight(10);
+        Text timeProgressText = new Text("    Time\nProgress:");
+        timeProgressText.setLayoutX(316);
+        timeProgressText.setLayoutY(40);
+        timeProgressText.setFont(Font.font("Verdana", FontWeight.BOLD, FontPosture.ITALIC, 16));
+        timeProgressText.setFill(Color.web("#FFE4E1"));  // MistyRose
+        DropShadow ds2 = new DropShadow();
+        ds2.setOffsetY(3.0);
+        ds2.setOffsetX(3.0);
+        ds2.setColor(Color.color(0, 0, 0, 0.4));
+        timeProgressText.setEffect(ds2);
+        mainRoot.getChildren().addAll(timeProgressBox,timeProgressText);
+
+        // Packet loss
+        Rectangle packetLossBox=new Rectangle(500,8,120,100);
+        packetLossBox.setFill(Color.PURPLE);
+        packetLossBox.setArcWidth(10);
+        packetLossBox.setArcHeight(10);
+        Text packetLossText = new Text("Packet Loss:");
+        packetLossText.setLayoutX(514);
+        packetLossText.setLayoutY(40);
+        packetLossText.setFont(Font.font("Verdana", FontWeight.BOLD, FontPosture.ITALIC, 14));
+        packetLossText.setFill(Color.web("#FFE4E1"));  // MistyRose
+        DropShadow ds3 = new DropShadow();
+        ds3.setOffsetY(3.0);
+        ds3.setOffsetX(3.0);
+        ds3.setColor(Color.color(0, 0, 0, 0.4));
+        packetLossText.setEffect(ds3);
+        mainRoot.getChildren().addAll(packetLossBox,packetLossText);
+
+        // Coins
+        Rectangle coinsBox=new Rectangle(700,8,120,100);
+        coinsBox.setFill(Color.PURPLE);
+        coinsBox.setArcWidth(10);
+        coinsBox.setArcHeight(10);
+        Text coinsText = new Text("    Coins:");
+        coinsText.setLayoutX(714);
+        coinsText.setLayoutY(40);
+        coinsText.setFont(Font.font("Verdana", FontWeight.BOLD, FontPosture.ITALIC, 14));
+        coinsText.setFill(Color.web("#FFE4E1"));  // MistyRose
+        DropShadow ds4 = new DropShadow();
+        ds4.setOffsetY(3.0);
+        ds4.setOffsetX(3.0);
+        ds4.setColor(Color.color(0, 0, 0, 0.4));
+        packetLossText.setEffect(ds4);
+        mainRoot.getChildren().addAll(coinsBox,coinsText);
+
+
+        // Down UI
+        Rectangle downRectangle=new Rectangle(0,600,900,115);
+        downRectangle.setArcWidth(30);
+        downRectangle.setArcHeight(30);
+        downRectangle.setFill(Color.web("#663399"));
+        downRectangle.setStroke(Color.BLACK);
+        downRectangle.setStrokeWidth(2);
+        mainRoot.getChildren().add(downRectangle);
+
+        // Back to menu from main
         Button backToMenuButton=new Button("Back");
         backToMenuButton.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 16px;");
-        backToMenuButton.setLayoutX(800);
-        backToMenuButton.setLayoutY(10);
+        backToMenuButton.setLayoutX(650);
+        backToMenuButton.setLayoutY(610);
+        backToMenuButton.setPrefWidth(160);
+        backToMenuButton.setPrefHeight(80);
         mainRoot.getChildren().add(backToMenuButton);
         backToMenuButton.setOnAction(actionEvent -> primaryStage.setScene(menuScene));
+
+        // Shop Button
+        Button shopButton=new Button("Shop");
+        shopButton.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 16px;");
+        shopButton.setLayoutX(80);
+        shopButton.setLayoutY(610);
+        shopButton.setPrefWidth(160);
+        shopButton.setPrefHeight(80);
+        mainRoot.getChildren().add(shopButton);
+
         Scene mainScene =new Scene(mainRoot,900,700);
         startButton.setOnAction(actionEvent -> primaryStage.setScene(mainScene));
 
@@ -403,11 +505,6 @@ public class Main extends Application {
         startSmallRect = null;
         e.consume();
     }
-
-
-
-
-
 
     public static void main(String[] args) {
         launch(args);
