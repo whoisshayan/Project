@@ -1,16 +1,21 @@
+import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class test2 extends Application {
 
     private Line tempLine;
     private boolean dragging = false;
     private Circle startCircle;
+    private boolean validDrag=false;
+
 
     public static void main(String[] args) {
         launch(args);
@@ -18,6 +23,7 @@ public class test2 extends Application {
 
     @Override
     public void start(Stage stage) {
+
         Pane root = new Pane();
 
         Circle circle1 = new Circle(100, 100, 15);
@@ -34,6 +40,12 @@ public class test2 extends Application {
 
         circle1.setOnMousePressed(e -> startDrag(circle1, root, e.getX(), e.getY()));
         circle2.setOnMousePressed(e -> startDrag(circle2, root, e.getX(), e.getY()));
+
+        Button startbutton=new Button("Start");
+        startbutton.setLayoutX(600);
+        startbutton.setLayoutY(600);
+        root.getChildren().add(startbutton);
+
 
         Scene scene = new Scene(root, 900, 700);
 
@@ -57,6 +69,25 @@ public class test2 extends Application {
                 if (distance <= target.getRadius()) {
                     tempLine.setEndX(target.getCenterX());
                     tempLine.setEndY(target.getCenterY());
+                    startbutton.setStyle(
+                            "-fx-background-color: #2196F3; " +
+                                    "-fx-text-fill: yellow; " +
+                                    "-fx-background-radius: 5; " +
+                                    "-fx-font-size: 14px;"
+                    );
+                    startbutton.setOnAction(actionEvent -> {
+                        Circle steamCircle=new Circle(100,100,5);
+                        steamCircle.setFill(Color.YELLOW);
+                        steamCircle.setStroke(Color.BLACK);
+                        steamCircle.setStrokeWidth(1);
+                        root.getChildren().add(steamCircle);
+                        TranslateTransition tt=new TranslateTransition(Duration.seconds(2),steamCircle);
+                        tt.setByX(300);
+                        tt.setByY(300);
+                        tt.setCycleCount(1);
+                        tt.setAutoReverse(false);
+                        tt.play();
+                    });
                 } else {
                     root.getChildren().remove(tempLine);
                 }
@@ -66,6 +97,7 @@ public class test2 extends Application {
                 startCircle = null;
             }
         });
+
 
         stage.setScene(scene);
         stage.setTitle("Connect with Drag");
