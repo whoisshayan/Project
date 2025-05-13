@@ -1,3 +1,4 @@
+import javafx.animation.PathTransition;
 import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -20,7 +21,9 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javafx.scene.text.Text;
 import javafx.scene.text.Font;
 import javafx.scene.paint.Color;
@@ -44,6 +47,13 @@ public class Main extends Application {
     private Text remainingWireText;
 
     private int validSteam=0;
+
+    private boolean circle12Connected = false;
+    private boolean circle34Connected = false;
+    private boolean rect12Connected   = false;
+    private boolean rect34Connected   = false;
+    private Map<Node, Line> connectionMap = new HashMap<>();
+
 
     @Override
     public void start(Stage primaryStage) {
@@ -248,7 +258,7 @@ public class Main extends Application {
         startSteam.setOnMouseEntered(e -> startSteam.setEffect(shadow));
         startSteam.setOnMouseExited(e -> startSteam.setEffect(null));
 
-        Group group=new Group(circle,littlerec,mainrect2,circle2,littlerec2);
+        Group group=new Group(circle,littlerec,mainrect2,circle2,littlerec2,startSteam);
         mainRoot.getChildren().add(group);
         startSteam.setOnAction(actionEvent -> {
             if (circlesConnected && rectsConnected) {
@@ -294,7 +304,7 @@ public class Main extends Application {
             }
         });
 
-        mainRoot.getChildren().add(startSteam);
+//        mainRoot.getChildren().add(startSteam);
         Rectangle upRectangle = new Rectangle(0, 0, 900, 115);
         upRectangle.setArcWidth(30);
         upRectangle.setArcHeight(30);
@@ -418,14 +428,12 @@ public class Main extends Application {
         startCircle = (Circle) e.getSource();
         startSmallRect = null;
 
+        removeExistingWire(startCircle);
+
         Point2D p = startCircle.localToScene(
-                startCircle.getCenterX(),
-                startCircle.getCenterY()
+                startCircle.getCenterX(), startCircle.getCenterY()
         );
-        currentLine = new Line(
-                p.getX(), p.getY(),
-                e.getSceneX(), e.getSceneY()
-        );
+        currentLine = new Line(p.getX(), p.getY(), e.getSceneX(), e.getSceneY());
         currentLine.setStrokeWidth(2);
         mainRoot.getChildren().add(currentLine);
         e.consume();
@@ -435,13 +443,12 @@ public class Main extends Application {
         startSmallRect = (Rectangle) e.getSource();
         startCircle = null;
 
-        double centerX = startSmallRect.getX() + startSmallRect.getWidth()/2;
-        double centerY = startSmallRect.getY() + startSmallRect.getHeight()/2;
-        Point2D p = startSmallRect.localToScene(centerX, centerY);
-        currentLine = new Line(
-                p.getX(), p.getY(),
-                e.getSceneX(), e.getSceneY()
-        );
+        removeExistingWire(startSmallRect);
+
+        double cx = startSmallRect.getX() + startSmallRect.getWidth()/2;
+        double cy = startSmallRect.getY() + startSmallRect.getHeight()/2;
+        Point2D p = startSmallRect.localToScene(cx, cy);
+        currentLine = new Line(p.getX(), p.getY(), e.getSceneX(), e.getSceneY());
         currentLine.setStrokeWidth(2);
         mainRoot.getChildren().add(currentLine);
         e.consume();
@@ -455,70 +462,83 @@ public class Main extends Application {
     }
 
     private void onReleaseWire(MouseEvent e) {
-        if (currentLine == null) {
-            return;
-        }
+        if (currentLine == null) return;
 
-        boolean hitCircle = false;
-        boolean hitRect   = false;
+        Circle    hitCircleTarget = null;
+        Rectangle hitRectTarget   = null;
 
-        // try connecting from a circle
         if (startCircle != null) {
             for (Circle target : circles) {
                 if (target == startCircle) continue;
                 Point2D center = target.localToScene(
                         target.getCenterX(), target.getCenterY()
                 );
-                double dx = center.getX() - e.getSceneX();
-                double dy = center.getY() - e.getSceneY();
-                if (Math.hypot(dx, dy) <= target.getRadius()) {
+                if (center.distance(e.getSceneX(), e.getSceneY()) <= target.getRadius()) {
                     currentLine.setEndX(center.getX());
                     currentLine.setEndY(center.getY());
-                    hitCircle = true;
+                    hitCircleTarget = target;
                     break;
                 }
             }
         }
-        // try connecting from a small rectangle
         else if (startSmallRect != null) {
-            Point2D scenePoint = new Point2D(e.getSceneX(), e.getSceneY());
+            Point2D scenePt = new Point2D(e.getSceneX(), e.getSceneY());
             for (Rectangle target : smallRects) {
                 if (target == startSmallRect) continue;
-                double centerX = target.getX() + target.getWidth()/2;
-                double centerY = target.getY() + target.getHeight()/2;
-                Point2D center = target.localToScene(centerX, centerY);
-                Point2D localPoint = target.sceneToLocal(scenePoint);
-                if (target.contains(localPoint)) {
+                double cx = target.getX() + target.getWidth() / 2;
+                double cy = target.getY() + target.getHeight() / 2;
+                Point2D center = target.localToScene(cx, cy);
+                if (target.contains(target.sceneToLocal(scenePt))) {
                     currentLine.setEndX(center.getX());
                     currentLine.setEndY(center.getY());
-                    hitRect = true;
+                    hitRectTarget = target;
                     break;
                 }
             }
         }
 
-        // remove the line if no valid connection was made
-        if (!hitCircle && !hitRect) {
+        if (hitCircleTarget == null && hitRectTarget == null) {
             mainRoot.getChildren().remove(currentLine);
-        }
+        } else {
+            if (hitCircleTarget != null) {
+                removeExistingWire(startCircle);
+                removeExistingWire(hitCircleTarget);
+                connectionMap.put(startCircle,    currentLine);
+                connectionMap.put(hitCircleTarget, currentLine);
+            } else {
+                removeExistingWire(startSmallRect);
+                removeExistingWire(hitRectTarget);
+                connectionMap.put(startSmallRect, currentLine);
+                connectionMap.put(hitRectTarget,   currentLine);
+            }
 
-        if (hitCircle) circlesConnected = true;
-        if (hitRect) rectsConnected = true;
-
-        if ((hitCircle || hitRect) && wire_size > 0) {
             double dx = currentLine.getEndX() - currentLine.getStartX();
             double dy = currentLine.getEndY() - currentLine.getStartY();
-            double length = Math.hypot(dx, dy);
-            wire_size -= length;
-            if (wire_size < 0) wire_size = 0;
+            wire_size = Math.max(0, wire_size - Math.hypot(dx, dy));
             remainingWireText.setText("Remaining\n     Wire:\n      " + (int)wire_size);
+
+            if (circles.size() == 2) {
+                if (hitCircleTarget != null) circlesConnected = true;
+                if (hitRectTarget   != null) rectsConnected   = true;
+            } else if (circles.size() == 4) {
+                checkStageTwoConnections(hitCircleTarget, hitRectTarget);
+
+                if (circle12Connected && circle34Connected
+                        && rect12Connected   && rect34Connected) {
+                    System.out.println("Hi");
+                }
+            }
         }
 
+        // 7) ری‌ست موقت‌ها
         currentLine    = null;
         startCircle    = null;
         startSmallRect = null;
         e.consume();
     }
+
+
+
 
     private void secondLevel(Stage stage,Pane mainRoot,Scene menuscene,Group group){
 
@@ -589,6 +609,70 @@ public class Main extends Application {
 //            mainrect.setArcWidth(20);
 //            mainrect.setArcHeight(20);
 
+            Button startSteam=new Button("Start");
+            startSteam.setLayoutX(230);
+            startSteam.setLayoutY(240);
+            startSteam.setStyle(
+                    "-fx-background-color: linear-gradient(to bottom right, #FF6F61, #D7263D);" +
+                            "-fx-text-fill: white;" +
+                            "-fx-background-radius: 10;" +
+                            "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0, 0, 2);"
+            );
+            startSteam.setOnMouseEntered(e -> startSteam.setEffect(shadow));
+            startSteam.setOnMouseExited(e -> startSteam.setEffect(null));
+            startSteam.setOnAction(evt -> {
+                if (!(circle12Connected && circle34Connected && rect12Connected && rect34Connected)) {
+                    return;
+                }
+
+                Line wireCircle = (Line) connectionMap.get(circles.get(0));
+                Line wireCircle2 = (Line) connectionMap.get(circles.get(2));
+                Line wireRect   = (Line) connectionMap.get(smallRects.get(0));
+                Line wireRect2   = (Line) connectionMap.get(smallRects.get(2));
+
+                Circle steamCircle = new Circle(5);
+                steamCircle.setFill(Color.YELLOW);
+                steamCircle.setStroke(Color.BLACK);
+                steamCircle.setStrokeWidth(1);
+                mainRoot.getChildren().add(steamCircle);
+
+                PathTransition pt1 = new PathTransition(Duration.seconds(2), wireCircle, steamCircle);
+                pt1.setOrientation(PathTransition.OrientationType.NONE);
+                pt1.setCycleCount(1);
+                pt1.setOnFinished(e1 -> {
+                    PathTransition pt1b = new PathTransition(Duration.seconds(2), wireCircle2, steamCircle);
+                    pt1b.setOrientation(PathTransition.OrientationType.NONE);
+                    pt1b.setCycleCount(1);
+                    pt1b.setOnFinished(e2 -> {
+                        mainRoot.getChildren().remove(steamCircle);
+                    });
+                    pt1b.play();
+                });
+                pt1.play();
+
+                Rectangle steamRect = new Rectangle(5,10);
+                steamRect.setFill(Color.YELLOW);
+                steamRect.setStroke(Color.BLACK);
+                steamRect.setStrokeWidth(1);
+                mainRoot.getChildren().add(steamRect);
+
+                PathTransition pr1 = new PathTransition(Duration.seconds(2), wireRect, steamRect);
+                pr1.setOrientation(PathTransition.OrientationType.NONE);
+                pr1.setCycleCount(1);
+                pr1.setOnFinished(e1 -> {
+                    PathTransition pr1b = new PathTransition(Duration.seconds(2), wireRect2, steamRect);
+                    pr1b.setOrientation(PathTransition.OrientationType.NONE);
+                    pr1b.setCycleCount(1);
+                    pr1b.setOnFinished(e2 -> {
+                        mainRoot.getChildren().remove(steamRect);
+                    });
+                    pr1b.play();
+                });
+                pr1.play();
+            });
+
+            mainRoot.getChildren().add(startSteam);
+
             Circle circle = new Circle(300, 290, 10);
             circle.setFill(Color.LIGHTGREEN);
             circle.setStroke(Color.DARKGREEN);
@@ -652,11 +736,50 @@ public class Main extends Application {
             littlerec4.setArcWidth(2);
             littlerec4.setArcHeight(2);
 
-
             mainRoot.getChildren().addAll(mainrect2,circle2,circle,littlerec,littlerec2,circle3,littlerec3,mainrect3,circle4,littlerec4);
 
-        });
+            circles = List.of(circle, circle2, circle3, circle4);
+            smallRects = List.of(littlerec, littlerec2, littlerec3, littlerec4);
 
+            for (Circle c : circles) {
+                c.setOnMousePressed(this::onStartWireFromCircle);
+            }
+            for (Rectangle r : smallRects) {
+                r.setOnMousePressed(this::onStartWireFromSmallRect);
+            }
+
+        });
+    }
+
+    private void checkStageTwoConnections(Circle hitCircle, Rectangle hitRect) {
+        if (hitCircle != null) {
+            int i1 = circles.indexOf(startCircle);
+            int i2 = circles.indexOf(hitCircle);
+            if ((i1 == 0 && i2 == 1) || (i1 == 1 && i2 == 0)) {
+                circle12Connected = true;
+            }
+            if ((i1 == 2 && i2 == 3) || (i1 == 3 && i2 == 2)) {
+                circle34Connected = true;
+            }
+        }
+        if (hitRect != null) {
+            int j1 = smallRects.indexOf(startSmallRect);
+            int j2 = smallRects.indexOf(hitRect);
+            if ((j1 == 0 && j2 == 1) || (j1 == 1 && j2 == 0)) {
+                rect12Connected = true;
+            }
+            if ((j1 == 2 && j2 == 3) || (j1 == 3 && j2 == 2)) {
+                rect34Connected = true;
+            }
+        }
+    }
+
+    private void removeExistingWire(Node node) {
+        Line old = connectionMap.get(node);
+        if (old != null) {
+            mainRoot.getChildren().remove(old);
+            connectionMap.entrySet().removeIf(e -> e.getValue() == old);
+        }
     }
 
     public static void main(String[] args) {

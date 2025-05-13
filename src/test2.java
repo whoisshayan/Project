@@ -1,8 +1,4 @@
-import javafx.animation.AnimationTimer;
-import javafx.animation.FadeTransition;
-import javafx.animation.ParallelTransition;
-import javafx.animation.ScaleTransition;
-import javafx.animation.TranslateTransition;
+import javafx.animation.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -103,96 +99,35 @@ public class test2 extends Application {
                 );
 
                 startButton.setOnAction(actionEvent -> {
+                    // ساخت دو دایره‌ی steam مثل قبل
                     Circle steamCircle1 = new Circle(circle1.getCenterX(), circle1.getCenterY(), 5);
                     steamCircle1.setFill(Color.YELLOW);
-                    steamCircle1.setStroke(Color.BLACK);
-                    steamCircle1.setStrokeWidth(1);
+                    root.getChildren().add(steamCircle1);
 
                     Circle steamCircle2 = new Circle(circle3.getCenterX(), circle3.getCenterY(), 5);
                     steamCircle2.setFill(Color.YELLOW);
-                    steamCircle2.setStroke(Color.BLACK);
-                    steamCircle2.setStrokeWidth(1);
+                    root.getChildren().add(steamCircle2);
 
-                    root.getChildren().addAll(steamCircle1, steamCircle2);
+                    // فرض می‌کنیم tempLine همانی است که بین circle1 و circle2 کشیده شده
+                    // و یک tempLine2 هم بین circle3 و circle4 دارید (یا دوباره آن را ایجاد کنید)
+                    Line line1 = tempLine;
+                    // اگر خط دوم را ذخیره نکرده‌اید، میتوانید دقیقاً مثل startDrag یک tempLine2 بسازید
+                    // که ابتدا از circle3 شروع و در انتها روی circle4 قرار گرفته باشد:
+                    Line line2 = new Line(circle3.getCenterX(), circle3.getCenterY(),
+                            circle4.getCenterX(), circle4.getCenterY());
+                    root.getChildren().add(line2);
 
-                    TranslateTransition tt1 = new TranslateTransition(Duration.seconds(1.7), steamCircle1);
-                    tt1.setByX(circle2.getCenterX() - circle1.getCenterX());
-                    tt1.setByY(circle2.getCenterY() - circle1.getCenterY());
-                    tt1.setCycleCount(1);
-                    tt1.setAutoReverse(true);
-                    tt1.play();
-                    tt1.setOnFinished(ev -> {
-                        validSteam++;
-                        if (validSteam == 2) {
-                            System.out.println("OK!");
-                            Button nextLevelButton=new Button("Next Level");
-                            root.getChildren().add(nextLevelButton);
-                            nextLevelButton.setOnAction(actionEvent1 -> {root.getChildren().remove(circle1);});
-                        }
-                    });
+                    // PathTransition برای دایره‌ی اول
+                    PathTransition pt1 = new PathTransition(Duration.seconds(1.7), line1, steamCircle1);
+                    pt1.setCycleCount(1);
+                    pt1.setAutoReverse(true);
+                    pt1.play();
 
-                    TranslateTransition tt2 = new TranslateTransition(Duration.seconds(1.3), steamCircle2);
-                    tt2.setByX(circle4.getCenterX() - circle3.getCenterX());
-                    tt2.setByY(circle4.getCenterY() - circle3.getCenterY());
-                    tt2.setCycleCount(1);
-                    tt2.setAutoReverse(true);
-                    tt2.play();
-                    tt2.setOnFinished(ev -> {
-                        validSteam++;
-                        if (validSteam == 2) {
-                            System.out.println("OK!");
-                            Button nextLevelButton=new Button("Next Level");
-                            root.getChildren().add(nextLevelButton);
-                        }
-                    });
-
-                    AnimationTimer collisionChecker = new AnimationTimer() {
-                        @Override
-                        public void handle(long now) {
-                            double sx1 = steamCircle1.getTranslateX() + steamCircle1.getCenterX();
-                            double sy1 = steamCircle1.getTranslateY() + steamCircle1.getCenterY();
-                            double sx2 = steamCircle2.getTranslateX() + steamCircle2.getCenterX();
-                            double sy2 = steamCircle2.getTranslateY() + steamCircle2.getCenterY();
-                            double ddx = sx1 - sx2;
-                            double ddy = sy1 - sy2;
-                            double dist = Math.hypot(ddx, ddy);
-
-                            if (dist <= steamCircle1.getRadius() + steamCircle2.getRadius()) {
-                                Circle explosion = new Circle(
-                                        (sx1 + sx2) / 2,
-                                        (sy1 + sy2) / 2,
-                                        5
-                                );
-                                explosion.setFill(Color.ORANGE);
-                                explosion.setOpacity(0.6);
-                                root.getChildren().add(explosion);
-
-                                ScaleTransition scale = new ScaleTransition(Duration.millis(400), explosion);
-                                scale.setToX(6);
-                                scale.setToY(6);
-
-                                FadeTransition fade = new FadeTransition(Duration.millis(400), explosion);
-                                fade.setToValue(0);
-
-                                ParallelTransition wave = new ParallelTransition(scale, fade);
-                                wave.setOnFinished(ev -> root.getChildren().remove(explosion));
-                                wave.play();
-
-                                TranslateTransition drift1 = new TranslateTransition(Duration.seconds(1), steamCircle1);
-                                drift1.setByX(20);
-                                drift1.setByY(-15);
-                                drift1.play();
-
-                                TranslateTransition drift2 = new TranslateTransition(Duration.seconds(1), steamCircle2);
-                                drift2.setByX(-20);
-                                drift2.setByY(15);
-                                drift2.play();
-
-                                this.stop();
-                            }
-                        }
-                    };
-                    collisionChecker.start();
+                    // PathTransition برای دایره‌ی دوم
+                    PathTransition pt2 = new PathTransition(Duration.seconds(1.3), line2, steamCircle2);
+                    pt2.setCycleCount(10);
+                    pt2.setAutoReverse(true);
+                    pt2.play();
                 });
 
             } else {
