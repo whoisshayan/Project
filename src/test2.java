@@ -19,6 +19,8 @@ public class test2 extends Application {
     private boolean dragging = false;
     private Circle startCircle;
 
+    private int validSteam=0;
+
     public static void main(String[] args) {
         launch(args);
     }
@@ -116,16 +118,33 @@ public class test2 extends Application {
                     TranslateTransition tt1 = new TranslateTransition(Duration.seconds(1.7), steamCircle1);
                     tt1.setByX(circle2.getCenterX() - circle1.getCenterX());
                     tt1.setByY(circle2.getCenterY() - circle1.getCenterY());
-                    tt1.setCycleCount(10);
+                    tt1.setCycleCount(1);
                     tt1.setAutoReverse(true);
                     tt1.play();
+                    tt1.setOnFinished(ev -> {
+                        validSteam++;
+                        if (validSteam == 2) {
+                            System.out.println("OK!");
+                            Button nextLevelButton=new Button("Next Level");
+                            root.getChildren().add(nextLevelButton);
+                            nextLevelButton.setOnAction(actionEvent1 -> {root.getChildren().remove(circle1);});
+                        }
+                    });
 
                     TranslateTransition tt2 = new TranslateTransition(Duration.seconds(1.3), steamCircle2);
                     tt2.setByX(circle4.getCenterX() - circle3.getCenterX());
                     tt2.setByY(circle4.getCenterY() - circle3.getCenterY());
-                    tt2.setCycleCount(10);
+                    tt2.setCycleCount(1);
                     tt2.setAutoReverse(true);
                     tt2.play();
+                    tt2.setOnFinished(ev -> {
+                        validSteam++;
+                        if (validSteam == 2) {
+                            System.out.println("OK!");
+                            Button nextLevelButton=new Button("Next Level");
+                            root.getChildren().add(nextLevelButton);
+                        }
+                    });
 
                     AnimationTimer collisionChecker = new AnimationTimer() {
                         @Override
