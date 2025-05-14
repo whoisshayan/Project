@@ -1,5 +1,4 @@
-import javafx.animation.PathTransition;
-import javafx.animation.TranslateTransition;
+import javafx.animation.*;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Point2D;
@@ -13,6 +12,7 @@ import javafx.scene.shape.Line;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.FontPosture;
 import javafx.scene.text.FontWeight;
+import javafx.scene.transform.Translate;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -30,6 +30,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
 import javafx.scene.Node;
+import javafx.animation.AnimationTimer;
+import javafx.scene.transform.Translate;
 
 
 public class Main extends Application {
@@ -45,6 +47,11 @@ public class Main extends Application {
 
     private double wire_size = 1000;
     private Text remainingWireText;
+    private Text packetLossText;
+    private int packetLoss=0;
+    private Text coinsText;
+    private int coins=1000;
+
 
     private int validSteam=0;
 
@@ -270,7 +277,7 @@ public class Main extends Application {
                 TranslateTransition tt = new TranslateTransition(Duration.seconds(2), steamCircle);
                 tt.setByX(circle2.getCenterX()-circle.getCenterX());
                 tt.setByY(circle2.getCenterY()-circle.getCenterY());
-                tt.setCycleCount(1);
+                tt.setCycleCount(2);
                 tt.setAutoReverse(false);
                 tt.setOnFinished(ev -> {
                     steamCircle.setVisible(false);
@@ -290,7 +297,7 @@ public class Main extends Application {
                 TranslateTransition tt2 = new TranslateTransition(Duration.seconds(2), steamRectangle);
                 tt2.setByX(littlerec2.getX()-littlerec.getX());
                 tt2.setByY(littlerec2.getY()-littlerec.getY());
-                tt2.setCycleCount(1);
+                tt2.setCycleCount(2);
                 tt2.setAutoReverse(false);
                 tt2.setOnFinished(ev -> {
                     steamRectangle.setVisible(false);
@@ -354,7 +361,7 @@ public class Main extends Application {
         packetLossBox.setFill(Color.PURPLE);
         packetLossBox.setArcWidth(10);
         packetLossBox.setArcHeight(10);
-        Text packetLossText = new Text("Packet Loss:");
+        packetLossText = new Text("Packet Loss:\n\n        " + packetLoss);
         packetLossText.setLayoutX(514);
         packetLossText.setLayoutY(40);
         packetLossText.setFont(Font.font("Verdana", FontWeight.BOLD, FontPosture.ITALIC, 14));
@@ -371,7 +378,7 @@ public class Main extends Application {
         coinsBox.setFill(Color.PURPLE);
         coinsBox.setArcWidth(10);
         coinsBox.setArcHeight(10);
-        Text coinsText = new Text("    Coins:");
+        coinsText = new Text("     Coins:\n\n     " + coins);
         coinsText.setLayoutX(714);
         coinsText.setLayoutY(40);
         coinsText.setFont(Font.font("Verdana", FontWeight.BOLD, FontPosture.ITALIC, 14));
@@ -530,7 +537,6 @@ public class Main extends Application {
             }
         }
 
-        // 7) ری‌ست موقت‌ها
         currentLine    = null;
         startCircle    = null;
         startSmallRect = null;
@@ -541,6 +547,9 @@ public class Main extends Application {
 
 
     private void secondLevel(Stage stage,Pane mainRoot,Scene menuscene,Group group){
+        coins+=4;
+        coinsText.setText("     Coins:\n\n     " + coins);
+
 
         // Win Box
         Rectangle winShowRectangle=new Rectangle(270,260,300,180);
@@ -620,58 +629,6 @@ public class Main extends Application {
             );
             startSteam.setOnMouseEntered(e -> startSteam.setEffect(shadow));
             startSteam.setOnMouseExited(e -> startSteam.setEffect(null));
-            startSteam.setOnAction(evt -> {
-                if (!(circle12Connected && circle34Connected && rect12Connected && rect34Connected)) {
-                    return;
-                }
-
-                Line wireCircle = (Line) connectionMap.get(circles.get(0));
-                Line wireCircle2 = (Line) connectionMap.get(circles.get(2));
-                Line wireRect   = (Line) connectionMap.get(smallRects.get(0));
-                Line wireRect2   = (Line) connectionMap.get(smallRects.get(2));
-
-                Circle steamCircle = new Circle(5);
-                steamCircle.setFill(Color.YELLOW);
-                steamCircle.setStroke(Color.BLACK);
-                steamCircle.setStrokeWidth(1);
-                mainRoot.getChildren().add(steamCircle);
-
-                PathTransition pt1 = new PathTransition(Duration.seconds(2), wireCircle, steamCircle);
-                pt1.setOrientation(PathTransition.OrientationType.NONE);
-                pt1.setCycleCount(1);
-                pt1.setOnFinished(e1 -> {
-                    PathTransition pt1b = new PathTransition(Duration.seconds(2), wireCircle2, steamCircle);
-                    pt1b.setOrientation(PathTransition.OrientationType.NONE);
-                    pt1b.setCycleCount(1);
-                    pt1b.setOnFinished(e2 -> {
-                        mainRoot.getChildren().remove(steamCircle);
-                    });
-                    pt1b.play();
-                });
-                pt1.play();
-
-                Rectangle steamRect = new Rectangle(5,10);
-                steamRect.setFill(Color.YELLOW);
-                steamRect.setStroke(Color.BLACK);
-                steamRect.setStrokeWidth(1);
-                mainRoot.getChildren().add(steamRect);
-
-                PathTransition pr1 = new PathTransition(Duration.seconds(2), wireRect, steamRect);
-                pr1.setOrientation(PathTransition.OrientationType.NONE);
-                pr1.setCycleCount(1);
-                pr1.setOnFinished(e1 -> {
-                    PathTransition pr1b = new PathTransition(Duration.seconds(2), wireRect2, steamRect);
-                    pr1b.setOrientation(PathTransition.OrientationType.NONE);
-                    pr1b.setCycleCount(1);
-                    pr1b.setOnFinished(e2 -> {
-                        mainRoot.getChildren().remove(steamRect);
-                    });
-                    pr1b.play();
-                });
-                pr1.play();
-            });
-
-            mainRoot.getChildren().add(startSteam);
 
             Circle circle = new Circle(300, 290, 10);
             circle.setFill(Color.LIGHTGREEN);
@@ -741,6 +698,68 @@ public class Main extends Application {
             circles = List.of(circle, circle2, circle3, circle4);
             smallRects = List.of(littlerec, littlerec2, littlerec3, littlerec4);
 
+            startSteam.setOnAction(evt -> {
+                if (!(circle12Connected && circle34Connected && rect12Connected && rect34Connected)) {
+                    return;
+                }
+
+                Point2D p1 = circles.get(0).localToScene(circles.get(0).getCenterX(), circles.get(0).getCenterY());
+                Point2D p2 = circles.get(1).localToScene(circles.get(1).getCenterX(), circles.get(1).getCenterY());
+                Point2D p3 = circles.get(2).localToScene(circles.get(2).getCenterX(), circles.get(2).getCenterY());
+                Point2D p4 = circles.get(3).localToScene(circles.get(3).getCenterX(), circles.get(3).getCenterY());
+
+                Line pathCircle12 = new Line(p1.getX(), p1.getY(), p2.getX(), p2.getY());
+                Line pathCircle34 = new Line(p3.getX(), p3.getY(), p4.getX(), p4.getY());
+
+                Point2D r1 = smallRects.get(0).localToScene(
+                        smallRects.get(0).getX() + smallRects.get(0).getWidth()/2,
+                        smallRects.get(0).getY() + smallRects.get(0).getHeight()/2);
+                Point2D r2 = smallRects.get(1).localToScene(
+                        smallRects.get(1).getX() + smallRects.get(1).getWidth()/2,
+                        smallRects.get(1).getY() + smallRects.get(1).getHeight()/2);
+                Point2D r3 = smallRects.get(2).localToScene(
+                        smallRects.get(2).getX() + smallRects.get(2).getWidth()/2,
+                        smallRects.get(2).getY() + smallRects.get(2).getHeight()/2);
+                Point2D r4 = smallRects.get(3).localToScene(
+                        smallRects.get(3).getX() + smallRects.get(3).getWidth()/2,
+                        smallRects.get(3).getY() + smallRects.get(3).getHeight()/2);
+
+                Line pathRect12 = new Line(r1.getX(), r1.getY(), r2.getX(), r2.getY());
+                Line pathRect34 = new Line(r3.getX(), r3.getY(), r4.getX(), r4.getY());
+
+                Circle steamCircle = new Circle(5, Color.YELLOW);
+                steamCircle.setStroke(Color.BLACK);
+                steamCircle.setStrokeWidth(1);
+                Rectangle steamRect = new Rectangle(5, 10, Color.YELLOW);
+                steamRect.setStroke(Color.BLACK);
+                steamRect.setStrokeWidth(1);
+                mainRoot.getChildren().addAll(steamCircle, steamRect);
+
+                PathTransition pt1 = new PathTransition(Duration.seconds(2), pathCircle12, steamCircle);
+                pt1.setOrientation(PathTransition.OrientationType.NONE);
+                PathTransition pt2 = new PathTransition(Duration.seconds(2), pathCircle34, steamCircle);
+                pt2.setOrientation(PathTransition.OrientationType.NONE);
+                SequentialTransition seqCircle = new SequentialTransition(pt1, pt2);
+
+                PathTransition pr1 = new PathTransition(Duration.seconds(2), pathRect12, steamRect);
+                pr1.setOrientation(PathTransition.OrientationType.NONE);
+                PathTransition pr2 = new PathTransition(Duration.seconds(2), pathRect34, steamRect);
+                pr2.setOrientation(PathTransition.OrientationType.NONE);
+                SequentialTransition seqRect = new SequentialTransition(pr1, pr2);
+
+                ParallelTransition all = new ParallelTransition(seqCircle, seqRect);
+                all.setCycleCount(2);
+                all.setOnFinished(e -> {
+                    mainRoot.getChildren().removeAll(steamCircle, steamRect);
+                    finalWin(stage, mainRoot, menuscene);
+                });
+                all.play();
+                enableSteamCollision(steamCircle, steamRect);
+            });
+
+            mainRoot.getChildren().add(startSteam);
+
+
             for (Circle c : circles) {
                 c.setOnMousePressed(this::onStartWireFromCircle);
             }
@@ -780,6 +799,97 @@ public class Main extends Application {
             mainRoot.getChildren().remove(old);
             connectionMap.entrySet().removeIf(e -> e.getValue() == old);
         }
+    }
+
+
+    private void enableSteamCollision(Circle steamCircle, Rectangle steamRect) {
+
+        final double COLLISION_DIST = 8;
+        final double OFFSET = 5;
+
+        AnimationTimer timer = new AnimationTimer() {
+            private boolean bumped = false;
+
+            @Override
+            public void handle(long now) {
+
+                double dx = steamCircle.getLayoutX() + steamCircle.getTranslateX()
+                        - (steamRect.getLayoutX() + steamRect.getTranslateX() + steamRect.getWidth()/2);
+                double dy = steamCircle.getLayoutY() + steamCircle.getTranslateY()
+                        - (steamRect.getLayoutY() + steamRect.getTranslateY() + steamRect.getHeight()/2);
+
+                if (!bumped && Math.hypot(dx, dy) < COLLISION_DIST) {
+                    bumped = true;
+                    packetLoss+=2;
+                    Platform.runLater(() -> {
+                        packetLossText.setText("Packet Loss:\n\n        " + packetLoss);
+                    });
+                    double len = Math.hypot(dx, dy);
+                    double nx =  (len == 0) ? 0 :  (dy / len) * OFFSET;
+                    double ny =  (len == 0) ? 0 : -(dx / len) * OFFSET;
+
+                    steamCircle.getTransforms().add(new Translate( nx,  ny));
+                    steamRect  .getTransforms().add(new Translate(-nx, -ny));
+                    stop();
+                }
+            }
+        };
+        timer.start();
+    }
+
+
+
+    private void finalWin(Stage stage,Pane mainRoot,Scene menuscene){
+        coins+=4;
+        coinsText.setText("     Coins:\n\n     " + coins);
+
+        Rectangle winShowRectangle=new Rectangle(270,260,300,180);
+        winShowRectangle.setFill(Color.web("#663399"));
+        winShowRectangle.setArcWidth(30);
+        winShowRectangle.setArcHeight(30);
+        mainRoot.getChildren().add(winShowRectangle);
+
+        // Text For Win Box
+        Text winText=new Text("You Win!");
+        winText.setLayoutX(340);
+        winText.setLayoutY(320);
+        winText.setFont(Font.font("Verdana", FontWeight.BOLD, FontPosture.ITALIC, 32));
+        winText.setFill(Color.web("#FFE4E1"));
+        DropShadow ds = new DropShadow();
+        ds.setOffsetY(3.0);
+        ds.setOffsetX(3.0);
+        ds.setColor(Color.color(0, 0, 0, 0.4));
+        winText.setEffect(ds);
+        mainRoot.getChildren().add(winText);
+
+
+        DropShadow shadow = new DropShadow();
+        shadow.setRadius(8);
+        shadow.setOffsetY(4);
+        shadow.setColor(Color.color(0, 0, 0, 0.6));
+
+        // Back to menu from win box button
+        Button backToMenuFromWinBoxButton=new Button("Back");
+        backToMenuFromWinBoxButton.setLayoutX(290);
+        backToMenuFromWinBoxButton.setLayoutY(365);
+        backToMenuFromWinBoxButton.setPrefHeight(35);
+        backToMenuFromWinBoxButton.setPrefSize(120, 50);
+        backToMenuFromWinBoxButton.setStyle("-fx-background-color: purple; -fx-text-fill: white; -fx-font-size: 16px;");
+        backToMenuFromWinBoxButton.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> backToMenuFromWinBoxButton.setEffect(shadow));
+        backToMenuFromWinBoxButton.addEventHandler(MouseEvent.MOUSE_EXITED, e -> backToMenuFromWinBoxButton.setEffect(null));
+        backToMenuFromWinBoxButton.setOnAction(actionEvent -> stage.setScene(menuscene));
+        mainRoot.getChildren().add(backToMenuFromWinBoxButton);
+
+        // Next level Button
+        Button nextLevelButton=new Button("Next Level");
+        nextLevelButton.setLayoutX(420);
+        nextLevelButton.setLayoutY(365);
+        nextLevelButton.setPrefHeight(35);
+        nextLevelButton.setPrefSize(120, 50);
+        nextLevelButton.setStyle("-fx-background-color: purple; -fx-text-fill: white; -fx-font-size: 16px;");
+        nextLevelButton.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> nextLevelButton.setEffect(shadow));
+        nextLevelButton.addEventHandler(MouseEvent.MOUSE_EXITED, e -> nextLevelButton.setEffect(null));
+        mainRoot.getChildren().add(nextLevelButton);
     }
 
     public static void main(String[] args) {
