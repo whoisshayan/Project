@@ -3,8 +3,12 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
+import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Slider;
+import javafx.scene.effect.Blend;
+import javafx.scene.effect.BlendMode;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.Glow;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.shape.Circle;
@@ -52,7 +56,8 @@ public class Main extends Application {
     private Text coinsText;
     private int coins=1000;
 
-
+    private boolean suppressImpact = false;
+    private boolean suppressPacketLoss = false;
     private int validSteam=0;
 
     private boolean circle12Connected = false;
@@ -421,6 +426,107 @@ public class Main extends Application {
         shopButton.setOnMouseEntered(e -> shopButton.setEffect(shadow));
         shopButton.setOnMouseExited(e -> shopButton.setEffect(null));
         mainRoot.getChildren().add(shopButton);
+        shopButton.setOnAction(actionEvent -> {
+
+            Rectangle shopBox=new Rectangle(250,150,400,400);
+            shopBox.setArcWidth(30);
+            shopBox.setArcHeight(30);
+            shopBox.setFill(Color.web("#663399"));
+            shopBox.setStroke(Color.BLACK);
+            shopBox.setStrokeWidth(2);
+
+            File crossFile = new File("D:/university/AP/project/Cross.png");
+            Image img = new Image(crossFile.toURI().toString());
+            ImageView iv = new ImageView(img);
+            iv.setFitWidth(20);
+            iv.setFitHeight(10);
+            iv.setPreserveRatio(true);
+
+            Button closeButton=new Button();
+            closeButton.setLayoutX(620);
+            closeButton.setLayoutY(160);
+            closeButton.setPrefHeight(10);
+            closeButton.setPrefWidth(20);
+            closeButton.setGraphic(iv);
+            closeButton.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+
+            Text shopText=new Text("Shop");
+            shopText.setLayoutX(370);
+            shopText.setLayoutY(250);
+            shopText.setFont(Font.font("Arial", FontWeight.BOLD, 70));
+            shopText.setFill(Color.RED);
+            DropShadow ds = new DropShadow();
+            ds.setOffsetY(3.0);
+            ds.setColor(Color.color(0.7, 0, 0));
+            Glow glow = new Glow();
+            glow.setLevel(0.5);
+            Blend blend = new Blend();
+            blend.setMode(BlendMode.ADD);
+            blend.setBottomInput(ds);
+            blend.setTopInput(glow);
+            shopText.setEffect(blend);
+
+
+            Button disableImpact=new Button(" O' Atar\n(3 Coins)");
+            disableImpact.setStyle("-fx-background-color: orange; -fx-text-fill: white; -fx-font-size: 16px;");
+            disableImpact.setLayoutX(270);
+            disableImpact.setLayoutY(315);
+            disableImpact.setPrefWidth(355);
+            disableImpact.setPrefHeight(80);
+            disableImpact.setOnMouseEntered(e -> disableImpact.setEffect(shadow));
+            disableImpact.setOnMouseExited(e -> disableImpact.setEffect(null));
+            disableImpact.setOnAction(e -> {
+                coins -= 3;
+                coinsText.setText("     Coins:\n\n     " + coins);
+                suppressImpact = true;
+                PauseTransition pause = new PauseTransition(Duration.seconds(10));
+                pause.setOnFinished(ev -> suppressImpact = false);
+                pause.play();
+            });
+
+            Button disablePacketLoss=new Button("O’ Airyaman\n  (4 Coins)");
+            disablePacketLoss.setStyle("-fx-background-color: purple; -fx-text-fill: white; -fx-font-size: 16px;");
+            disablePacketLoss.setLayoutX(270);
+            disablePacketLoss.setLayoutY(420);
+            disablePacketLoss.setPrefWidth(160);
+            disablePacketLoss.setPrefHeight(80);
+            disablePacketLoss.setOnMouseEntered(e -> disablePacketLoss.setEffect(shadow));
+            disablePacketLoss.setOnMouseExited(e -> disablePacketLoss.setEffect(null));
+            disablePacketLoss.setOnAction(e -> {
+                coins -= 4;
+                coinsText.setText("     Coins:\n\n     " + coins);
+                suppressPacketLoss = true;
+                PauseTransition pausePL = new PauseTransition(Duration.seconds(5));
+                pausePL.setOnFinished(ev -> suppressPacketLoss = false);
+                pausePL.play();
+            });
+
+
+            Button packetLossMakeTo0=new Button("O' Anahita\n  (5 Coins)");
+            packetLossMakeTo0.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 16px;");
+            packetLossMakeTo0.setLayoutX(470);
+            packetLossMakeTo0.setLayoutY(420);
+            packetLossMakeTo0.setPrefWidth(160);
+            packetLossMakeTo0.setPrefHeight(80);
+            packetLossMakeTo0.setOnMouseEntered(e -> packetLossMakeTo0.setEffect(shadow));
+            packetLossMakeTo0.setOnMouseExited(e -> packetLossMakeTo0.setEffect(null));
+            packetLossMakeTo0.setOnAction(actionEvent1 -> {
+                coins -= 5;
+                coinsText.setText("     Coins:\n\n     " + coins);
+                packetLoss = 0;
+                packetLossText.setText("Packet Loss:\n\n        " + packetLoss);
+            });
+
+            Group shopUI = new Group(shopBox, shopText, disableImpact, disablePacketLoss, packetLossMakeTo0, closeButton);
+            mainRoot.getChildren().add(shopUI);
+            closeButton.setOnAction(e -> {
+                FadeTransition fade = new FadeTransition(Duration.seconds(0.5), shopUI);
+                fade.setFromValue(1.0);
+                fade.setToValue(0.0);
+                fade.setOnFinished(ev -> mainRoot.getChildren().remove(shopUI));
+                fade.play();
+            });
+        });
 
         Scene mainScene = new Scene(mainRoot, 900, 700);
         startButton.setOnAction(actionEvent -> primaryStage.setScene(mainScene));
@@ -803,7 +909,6 @@ public class Main extends Application {
 
 
     private void enableSteamCollision(Circle steamCircle, Rectangle steamRect) {
-
         final double COLLISION_DIST = 8;
         final double OFFSET = 5;
 
@@ -812,7 +917,6 @@ public class Main extends Application {
 
             @Override
             public void handle(long now) {
-
                 double dx = steamCircle.getLayoutX() + steamCircle.getTranslateX()
                         - (steamRect.getLayoutX() + steamRect.getTranslateX() + steamRect.getWidth()/2);
                 double dy = steamCircle.getLayoutY() + steamCircle.getTranslateY()
@@ -820,21 +924,56 @@ public class Main extends Application {
 
                 if (!bumped && Math.hypot(dx, dy) < COLLISION_DIST) {
                     bumped = true;
-                    packetLoss+=2;
-                    Platform.runLater(() -> {
-                        packetLossText.setText("Packet Loss:\n\n        " + packetLoss);
-                    });
-                    double len = Math.hypot(dx, dy);
-                    double nx =  (len == 0) ? 0 :  (dy / len) * OFFSET;
-                    double ny =  (len == 0) ? 0 : -(dx / len) * OFFSET;
 
-                    steamCircle.getTransforms().add(new Translate( nx,  ny));
-                    steamRect  .getTransforms().add(new Translate(-nx, -ny));
+                    packetLoss += 2;
+                    Platform.runLater(() -> packetLossText.setText("Packet Loss:\n\n        " + packetLoss));
+
+                    // اگر PacketLoss غیرفعال باشد، نه انحراف و نه انفجار
+                    if (!suppressPacketLoss) {
+                        // انحراف (deflection)
+                        double len = Math.hypot(dx, dy);
+                        double nx = (len == 0) ? 0 :  (dy / len) * OFFSET;
+                        double ny = (len == 0) ? 0 : -(dx / len) * OFFSET;
+                        steamCircle.getTransforms().add(new Translate(nx, ny));
+                        steamRect.getTransforms()  .add(new Translate(-nx, -ny));
+
+                        // انفجار فقط اگر suppressImpact خاموش باشد
+                        if (!suppressImpact) {
+                            double cx = ((steamCircle.getLayoutX() + steamCircle.getTranslateX())
+                                    + (steamRect.getLayoutX() + steamRect.getTranslateX() + steamRect.getWidth()/2)) * 0.5;
+                            double cy = ((steamCircle.getLayoutY() + steamCircle.getTranslateY())
+                                    + (steamRect.getLayoutY() + steamRect.getTranslateY() + steamRect.getHeight()/2)) * 0.5;
+                            playExplosion(cx, cy, mainRoot);
+                        }
+                    }
                     stop();
                 }
             }
         };
         timer.start();
+    }
+
+
+    private void playExplosion(double x, double y, Pane root) {
+        Circle wave = new Circle(x, y, 10);
+        wave.setFill(null);
+        wave.setStroke(Color.ORANGE);
+        wave.setStrokeWidth(3);
+        root.getChildren().add(wave);
+
+        ScaleTransition scale = new ScaleTransition(Duration.seconds(0.5), wave);
+        scale.setFromX(1);
+        scale.setFromY(1);
+        scale.setToX(4);
+        scale.setToY(4);
+
+        FadeTransition fade = new FadeTransition(Duration.seconds(0.5), wave);
+        fade.setFromValue(1.0);
+        fade.setToValue(0.0);
+
+        ParallelTransition explosion = new ParallelTransition(scale, fade);
+        explosion.setOnFinished(e -> root.getChildren().remove(wave));
+        explosion.play();
     }
 
 
