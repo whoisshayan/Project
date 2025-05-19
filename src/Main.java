@@ -65,6 +65,8 @@ public class Main extends Application {
     private boolean rect12Connected   = false;
     private boolean rect34Connected   = false;
     private Map<Node, Line> connectionMap = new HashMap<>();
+    private Slider timeSlider;
+    private PathTransition previewCirclePt1, previewCirclePt2;
 
 
     @Override
@@ -84,6 +86,14 @@ public class Main extends Application {
         bgView2.setFitWidth(700);
         bgView2.setFitHeight(600);
         bgView2.setPreserveRatio(false);
+
+        // Load Level menu background image
+        File bgFile3 = new File("D:/university/AP/project/level background.png");
+        Image bgImage3 = new Image(bgFile3.toURI().toString());
+        ImageView bgView3 = new ImageView(bgImage3);
+        bgView3.setFitWidth(700);
+        bgView3.setFitHeight(600);
+        bgView3.setPreserveRatio(false);
 
         // Title text
         Text line1 = new Text(155, 100, "BLUEPRINT");
@@ -127,6 +137,7 @@ public class Main extends Application {
         levelButton.setOnMouseEntered(e -> levelButton.setEffect(shadow));
         levelButton.setOnMouseExited(e -> levelButton.setEffect(null));
 
+
         Button settingButton = new Button("Settings");
         settingButton.setLayoutX(290);
         settingButton.setLayoutY(365);
@@ -149,6 +160,44 @@ public class Main extends Application {
         root.getChildren().add(bgView);
         root.getChildren().addAll(startButton, levelButton, settingButton, exitButton, line1, line2);
         Scene menuScene = new Scene(root, 700, 600);
+
+
+        // Level scene
+        Button firstLevelButton=new Button("1");
+        firstLevelButton.setLayoutX(82.5);
+        firstLevelButton.setLayoutY(193);
+        firstLevelButton.setPrefSize(64, 55);
+        firstLevelButton.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 16px;");
+        firstLevelButton.setOnMouseEntered(e -> firstLevelButton.setEffect(shadow));
+        firstLevelButton.setOnMouseExited(e -> firstLevelButton.setEffect(null));
+
+        Button secondLevelButton=new Button("2");
+        secondLevelButton.setLayoutX(316.5);
+        secondLevelButton.setLayoutY(193);
+        secondLevelButton.setPrefSize(64, 55);
+        secondLevelButton.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 16px;");
+        secondLevelButton.setOnMouseEntered(e -> secondLevelButton.setEffect(shadow));
+        secondLevelButton.setOnMouseExited(e -> secondLevelButton.setEffect(null));
+        secondLevelButton.setOnAction(actionEvent -> {
+
+        });
+
+        Button backButtonFromLevel = new Button("Back");
+        backButtonFromLevel.setLayoutX(520);
+        backButtonFromLevel.setLayoutY(530);
+        backButtonFromLevel.setPrefSize(120, 50);
+        backButtonFromLevel.setStyle("-fx-background-color: red; -fx-text-fill: white; -fx-font-size: 16px;");
+        backButtonFromLevel.setOnAction(e -> primaryStage.setScene(menuScene));
+        backButtonFromLevel.setOnMouseEntered(e -> backButtonFromLevel.setEffect(shadow));
+        backButtonFromLevel.setOnMouseExited(e -> backButtonFromLevel.setEffect(null));
+
+
+        Pane levelRoot = new Pane();
+        levelRoot.getChildren().add(bgView3);
+        levelRoot.getChildren().addAll(firstLevelButton, secondLevelButton,backButtonFromLevel);
+        Scene levelScene = new Scene(levelRoot, 700, 600);
+        levelButton.setOnAction(e -> primaryStage.setScene(levelScene));
+
 
         // Settings scene
         Button backButton = new Button("Back");
@@ -177,7 +226,7 @@ public class Main extends Application {
         muteButton.setOnMouseEntered(e -> muteButton.setEffect(shadow));
         muteButton.setOnMouseExited(e -> muteButton.setEffect(null));
 
-        Slider volumeSlider = new Slider(0, 1, 0);
+        Slider volumeSlider = new Slider(0, 1, 0.5);
         volumeSlider.setLayoutX(123);
         volumeSlider.setLayoutY(290);
         volumeSlider.setPrefWidth(470);
@@ -273,6 +322,7 @@ public class Main extends Application {
         Group group=new Group(circle,littlerec,mainrect2,circle2,littlerec2,startSteam);
         mainRoot.getChildren().add(group);
         startSteam.setOnAction(actionEvent -> {
+            if (timeSlider.getValue() != 0) return;
             if (circlesConnected && rectsConnected) {
                 Circle steamCircle = new Circle(circle.getCenterX(), circle.getCenterY(), 5);
                 steamCircle.setFill(Color.YELLOW);
@@ -360,6 +410,13 @@ public class Main extends Application {
         ds2.setColor(Color.color(0, 0, 0, 0.4));
         timeProgressText.setEffect(ds2);
         mainRoot.getChildren().addAll(timeProgressBox, timeProgressText);
+
+        timeSlider = new Slider(0, 2.0, 0);
+        timeSlider.setLayoutX(timeProgressText.getLayoutX()-7);
+        timeSlider.setLayoutY(timeProgressText.getLayoutY() + 30);
+        timeSlider.setPrefWidth(timeProgressBox.getWidth() - 10);
+        timeSlider.setDisable(true);
+        mainRoot.getChildren().add(timeSlider);
 
         // Packet loss UI
         Rectangle packetLossBox = new Rectangle(500, 8, 120, 100);
@@ -530,7 +587,11 @@ public class Main extends Application {
 
         Scene mainScene = new Scene(mainRoot, 900, 700);
         startButton.setOnAction(actionEvent -> primaryStage.setScene(mainScene));
-
+        firstLevelButton.setOnAction(actionEvent -> primaryStage.setScene(mainScene));
+        secondLevelButton.setOnAction(e -> {
+            primaryStage.setScene(mainScene);
+            secondLevel(primaryStage, mainRoot, menuScene, group);
+        });
         primaryStage.setTitle("BluePrint Hell");
         primaryStage.setScene(menuScene);
         primaryStage.setResizable(false);
@@ -633,12 +694,119 @@ public class Main extends Application {
             if (circles.size() == 2) {
                 if (hitCircleTarget != null) circlesConnected = true;
                 if (hitRectTarget   != null) rectsConnected   = true;
-            } else if (circles.size() == 4) {
+
+                if (circlesConnected && rectsConnected) {
+                    timeSlider.setDisable(false);
+                    timeSlider.setValue(0);
+
+                    Circle previewC1 = new Circle(
+                            circles.get(0).getCenterX(), circles.get(0).getCenterY(), 5, Color.YELLOW
+                    );
+                    previewC1.setStroke(Color.BLACK);
+                    mainRoot.getChildren().add(previewC1);
+
+                    Circle previewC2 = new Circle(
+                            circles.get(1).getCenterX(), circles.get(1).getCenterY(), 5, Color.YELLOW
+                    );
+                    previewC2.setStroke(Color.BLACK);
+                    mainRoot.getChildren().add(previewC2);
+
+                    double rw  = smallRects.get(0).getWidth(),
+                            rh  = smallRects.get(0).getHeight();
+                    Rectangle previewR = new Rectangle(
+                            smallRects.get(0).getX() + rw/2  - rw/4,
+                            smallRects.get(0).getY() + rh/2 - rh/2,
+                            rw/2, rh
+                    );
+                    previewR.setFill(Color.YELLOW);
+                    previewR.setStroke(Color.BLACK);
+                    mainRoot.getChildren().add(previewR);
+
+                    double c1sx = circles.get(0).getCenterX(), c1sy = circles.get(0).getCenterY();
+                    double c1ex = circles.get(1).getCenterX(), c1ey = circles.get(1).getCenterY();
+
+                    double r0sx = smallRects.get(0).getX() + rw/2,  r0sy = smallRects.get(0).getY() + rh/2;
+                    double r0ex = smallRects.get(1).getX() + rw/2,  r0ey = smallRects.get(1).getY() + rh/2;
+
+                    timeSlider.valueProperty().addListener((obs, oldV, newV) -> {
+                        double t = newV.doubleValue() / 2.0;
+
+                        previewC1.setCenterX(c1sx + (c1ex - c1sx) * t);
+                        previewC1.setCenterY(c1sy + (c1ey - c1sy) * t);
+                        previewC2.setCenterX(c1sx + (c1ex - c1sx) * t);
+                        previewC2.setCenterY(c1sy + (c1ey - c1sy) * t);
+
+                        previewR.setX(r0sx + (r0ex - r0sx) * t - rw/4);
+                        previewR.setY(r0sy + (r0ey - r0sy) * t - rh/2);
+                    });
+                }
+            }
+
+            else if (circles.size() == 4) {
                 checkStageTwoConnections(hitCircleTarget, hitRectTarget);
 
                 if (circle12Connected && circle34Connected
-                        && rect12Connected   && rect34Connected) {
+                        && rect12Connected && rect34Connected) {
                     System.out.println("Hi");
+                    timeSlider.setDisable(false);
+
+                    Circle previewSteamC12 = new Circle(
+                            circles.get(0).getCenterX(), circles.get(0).getCenterY(), 5, Color.YELLOW
+                    );
+                    previewSteamC12.setStroke(Color.BLACK);
+                    mainRoot.getChildren().add(previewSteamC12);
+
+                    Circle previewSteamC34 = new Circle(
+                            circles.get(2).getCenterX(), circles.get(2).getCenterY(), 5, Color.YELLOW
+                    );
+                    previewSteamC34.setStroke(Color.BLACK);
+                    mainRoot.getChildren().add(previewSteamC34);
+
+                    Rectangle previewSteamR12 = new Rectangle(
+                            smallRects.get(0).getX() + smallRects.get(0).getWidth()/2 - 2,
+                            smallRects.get(0).getY() + smallRects.get(0).getHeight()/2 - 5,
+                            5, 10
+                    );
+                    previewSteamR12.setFill(Color.YELLOW);
+                    previewSteamR12.setStroke(Color.BLACK);
+                    mainRoot.getChildren().add(previewSteamR12);
+
+                    Rectangle previewSteamR34 = new Rectangle(
+                            smallRects.get(2).getX() + smallRects.get(2).getWidth()/2 - 2,
+                            smallRects.get(2).getY() + smallRects.get(2).getHeight()/2 - 5,
+                            5, 10
+                    );
+                    previewSteamR34.setFill(Color.YELLOW);
+                    previewSteamR34.setStroke(Color.BLACK);
+                    mainRoot.getChildren().add(previewSteamR34);
+
+                    double c12sx = circles.get(0).getCenterX(),   c12sy = circles.get(0).getCenterY();
+                    double c12ex = circles.get(1).getCenterX(),   c12ey = circles.get(1).getCenterY();
+                    double c34sx = circles.get(2).getCenterX(),   c34sy = circles.get(2).getCenterY();
+                    double c34ex = circles.get(3).getCenterX(),   c34ey = circles.get(3).getCenterY();
+
+                    double r12sx = smallRects.get(0).getX() + smallRects.get(0).getWidth()/2,
+                            r12sy = smallRects.get(0).getY() + smallRects.get(0).getHeight()/2;
+                    double r12ex = smallRects.get(1).getX() + smallRects.get(1).getWidth()/2,
+                            r12ey = smallRects.get(1).getY() + smallRects.get(1).getHeight()/2;
+                    double r34sx = smallRects.get(2).getX() + smallRects.get(2).getWidth()/2,
+                            r34sy = smallRects.get(2).getY() + smallRects.get(2).getHeight()/2;
+                    double r34ex = smallRects.get(3).getX() + smallRects.get(3).getWidth()/2,
+                            r34ey = smallRects.get(3).getY() + smallRects.get(3).getHeight()/2;
+
+                    timeSlider.valueProperty().addListener((obs, oldV, newV) -> {
+                        double t = newV.doubleValue() / 2.0;
+
+                        previewSteamC12.setCenterX(c12sx + (c12ex - c12sx) * t);
+                        previewSteamC12.setCenterY(c12sy + (c12ey - c12sy) * t);
+                        previewSteamC34.setCenterX(c34sx + (c34ex - c34sx) * t);
+                        previewSteamC34.setCenterY(c34sy + (c34ey - c34sy) * t);
+
+                        previewSteamR12.setX(r12sx + (r12ex - r12sx) * t - 2);
+                        previewSteamR12.setY(r12sy + (r12ey - r12sy) * t - 5);
+                        previewSteamR34.setX(r34sx + (r34ex - r34sx) * t - 2);
+                        previewSteamR34.setY(r34sy + (r34ey - r34sy) * t - 5);
+                    });
                 }
             }
         }
@@ -653,6 +821,9 @@ public class Main extends Application {
 
 
     private void secondLevel(Stage stage,Pane mainRoot,Scene menuscene,Group group){
+        timeSlider.setValue(0);
+        timeSlider.setDisable(true);
+
         coins+=4;
         coinsText.setText("     Coins:\n\n     " + coins);
 
@@ -805,7 +976,7 @@ public class Main extends Application {
             smallRects = List.of(littlerec, littlerec2, littlerec3, littlerec4);
 
             startSteam.setOnAction(evt -> {
-                if (!(circle12Connected && circle34Connected && rect12Connected && rect34Connected)) {
+                if (!(circle12Connected && circle34Connected && rect12Connected && rect34Connected) || timeSlider.getValue() != 0) {
                     return;
                 }
 
