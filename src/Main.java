@@ -1,6 +1,7 @@
 import javafx.animation.*;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.BoundingBox;
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
 import javafx.scene.control.ContentDisplay;
@@ -34,7 +35,8 @@ import javafx.scene.Node;
 import java.util.Objects;
 import javafx.scene.shape.Polygon;
 import javafx.geometry.Bounds;
-
+import javafx.animation.PathTransition;
+import javafx.animation.ParallelTransition;
 
 
 
@@ -129,9 +131,11 @@ public class Main extends Application {
         Button firstLevelButton  = styledButton("1",   82.5, 193, 64, 55, "red");
         Button secondLevelButton = styledButton("2",  316.5, 193, 64, 55, "red");
         Button backButtonFromLevel = styledButton("Back", 520, 530, 120, 50, "red");
+        Button thirdLevelButton   = styledButton("3",  316.5, 193, 64, 55, "red");
+        Button fourthLevelButton  = styledButton("4",  416.5, 193, 64, 55, "red");
         Pane levelRootScene = new Pane();
         levelRootScene.getChildren().add(bgView3);
-        levelRootScene.getChildren().addAll(firstLevelButton, secondLevelButton, backButtonFromLevel);
+        levelRootScene.getChildren().addAll(firstLevelButton, secondLevelButton, thirdLevelButton, fourthLevelButton, backButtonFromLevel);
         Scene levelScene = new Scene(levelRootScene, 700, 600);
         backButtonFromLevel.setOnAction(e -> primaryStage.setScene(menuScene));
         levelButton.setOnAction(e -> primaryStage.setScene(levelScene));
@@ -219,12 +223,16 @@ public class Main extends Application {
         lm.register(1, new Level1());
         lm.register(2, new Level2());
         lm.register(3, new Level3()); // ← اضافه کن
+        lm.register(4, new Level4()); // ← همین را اضافه کن
+
 
 
         // منو -> شروع
         startButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(1); });
         firstLevelButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(1); });
         secondLevelButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(2); });
+        thirdLevelButton.setOnAction(e  -> { primaryStage.setScene(mainScene); lm.goTo(3); });
+        fourthLevelButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(4); });
 
         primaryStage.setTitle("BluePrint Hell");
         primaryStage.setScene(menuScene);
@@ -439,13 +447,21 @@ final class ConnectionRepo {
         return null;
     }
 
-    void removeFor(Node n, Pane root) {
+    double removeFor(Node n, Pane root) {
         Line old = connectionMap.get(n);
         if (old != null) {
+            double dx = old.getEndX() - old.getStartX();
+            double dy = old.getEndY() - old.getStartY();
+            double len = Math.hypot(dx, dy);
+
             root.getChildren().remove(old);
             connectionMap.entrySet().removeIf(e -> e.getValue() == old);
+
+            return len; // ⬅️ ریفاند لازم به عهده‌ی کالر
         }
+        return 0.0;
     }
+
 
     void clear(Pane root){
         for (Line l : new HashSet<>(connectionMap.values())) root.getChildren().remove(l);
@@ -523,6 +539,12 @@ final class GameController {
     private List<Rectangle> smallRects;
     private Slider timeSlider;
 
+    // داخل GameController
+    Node connectedOf(Node n) {
+        return repo.otherNode(n); // همون اتصال واقعی که کاربر کشیده
+    }
+
+
     GameController(GameState st,
                    WireBudgetService wireBudget,
                    ScoreService score,
@@ -542,6 +564,29 @@ final class GameController {
         this.explosionFactory = explosionFactory;
         this.shadowFactory = shadowFactory;
     }
+
+    private boolean isConnectedSetToSet(java.util.List<? extends Node> from, java.util.List<? extends Node> to) {
+        java.util.Set<Node> toSet   = new java.util.HashSet<>(to);
+        java.util.Set<Node> seenTo  = new java.util.HashSet<>();
+        for (Node f : from) {
+            Node other = repo.otherNode(f);
+            if (other == null || !toSet.contains(other)) return false;
+            seenTo.add(other);
+        }
+        return seenTo.size() == from.size();
+    }
+
+    // --- Stage-ready callback for Level3 ---
+    private Runnable stageReadyCallback;
+    void setStageReadyCallback(Runnable r) { this.stageReadyCallback = r; }
+    // آیا a به b وصل است؟
+    boolean isConnected(Node a, Node b) {
+        Line l = repo.get(a);
+        if (l == null) return false;
+        Node other = repo.otherNode(a);
+        return other == b;
+    }
+
 
 
     void awardCoins(int amount) {
@@ -715,7 +760,7 @@ final class GameController {
             line.setStartX(p1.getX()); line.setStartY(p1.getY());
         }
     }
-    private Point2D nodeCenterInScene(Node n) {
+    public Point2D nodeCenterInScene(Node n) {
         if (n instanceof Circle c) {
             return c.localToScene(c.getCenterX(), c.getCenterY());
         } else if (n instanceof Rectangle r) {
@@ -772,7 +817,12 @@ final class GameController {
     void onStartWireFromCircle(MouseEvent e) {
         st.startCircle = (Circle) e.getSource();
         st.startSmallRect = null;
-        repo.removeFor(st.startCircle, root);
+        double refunded = repo.removeFor(st.startCircle, root);
+        if (refunded > 0) {
+            wireBudget.refund(refunded);
+            hud.setRemainingWire(wireBudget.remainingInt());
+            binder.syncFrom(hud);
+        }
         Point2D p = st.startCircle.localToScene(st.startCircle.getCenterX(), st.startCircle.getCenterY());
         st.currentLine = new Line(p.getX(), p.getY(), e.getSceneX(), e.getSceneY());
         st.currentLine.setStrokeWidth(2);
@@ -783,7 +833,12 @@ final class GameController {
     void onStartWireFromSmallRect(MouseEvent e) {
         st.startSmallRect = (Rectangle) e.getSource();
         st.startCircle = null;
-        repo.removeFor(st.startSmallRect, root);
+        double refunded = repo.removeFor(st.startSmallRect, root);
+        if (refunded > 0) {
+            wireBudget.refund(refunded);
+            hud.setRemainingWire(wireBudget.remainingInt());
+            binder.syncFrom(hud);
+        }
         double cx = st.startSmallRect.getX() + st.startSmallRect.getWidth()/2;
         double cy = st.startSmallRect.getY() + st.startSmallRect.getHeight()/2;
         Point2D p = st.startSmallRect.localToScene(cx, cy);
@@ -836,6 +891,20 @@ final class GameController {
         if (hitCircleTarget == null && hitRectTarget == null) {
             root.getChildren().remove(st.currentLine);
         } else {
+            // ⬅️ قبل از هر چیز: اگر مقصد سیم قبلی داشت، حذفش کن و ریفاند بده
+            double refundedTarget = 0.0;
+            if (hitCircleTarget != null) {
+                refundedTarget = repo.removeFor(hitCircleTarget, root);
+            } else {
+                refundedTarget = repo.removeFor(hitRectTarget, root);
+            }
+            if (refundedTarget > 0) {
+                wireBudget.refund(refundedTarget);
+                hud.setRemainingWire(wireBudget.remainingInt());
+                binder.syncFrom(hud);
+            }
+
+            // حالا مصرف طول سیم جدید
             double dx = st.currentLine.getEndX() - st.currentLine.getStartX();
             double dy = st.currentLine.getEndY() - st.currentLine.getStartY();
             double length = Math.hypot(dx, dy);
@@ -849,12 +918,14 @@ final class GameController {
                 return;
             }
 
+            // ثبت اتصال جدید
             if (hitCircleTarget != null) {
                 repo.putPair(st.startCircle, hitCircleTarget, st.currentLine, root);
             } else {
                 repo.putPair(st.startSmallRect, hitRectTarget, st.currentLine, root);
             }
 
+            // آپدیت HUD
             hud.setRemainingWire(wireBudget.remainingInt());
             binder.syncFrom(hud);
 
@@ -1002,6 +1073,32 @@ final class GameController {
 
                 }
             }
+            if (circles.size() == 6 && smallRects.size() == 6) {
+                // چپ: باید c1_sqR ↔ c2_sqL و c1_trR ↔ c2_trL وصل باشند (اینجا فقط یک جفت داریم)
+                boolean leftSquaresOK = (repo.otherNode(smallRects.get(0)) == smallRects.get(1)) ||
+                        (repo.otherNode(smallRects.get(1)) == smallRects.get(0));
+                boolean leftTrisOK    = (repo.otherNode(circles.get(0))    == circles.get(1))    ||
+                        (repo.otherNode(circles.get(1))    == circles.get(0));
+
+                // راست: دو خروجی SPYهای وسط (sq:2,3) باید به دو ورودی مربع مقصد (sq:4,5) وصل باشند — ترتیب مهم نیست
+                boolean rightSquaresOK = isConnectedSetToSet(
+                        java.util.List.of(smallRects.get(2), smallRects.get(3)),
+                        java.util.List.of(smallRects.get(4), smallRects.get(5))
+                );
+
+                // راست: دو خروجی مثلث SPYهای وسط (tri:2,3) باید به دو ورودی مثلث مقصد (tri:4,5) وصل باشند — ترتیب مهم نیست
+                boolean rightTrisOK = isConnectedSetToSet(
+                        java.util.List.of(circles.get(2), circles.get(3)),
+                        java.util.List.of(circles.get(4), circles.get(5))
+                );
+
+                if (leftSquaresOK && leftTrisOK && rightSquaresOK && rightTrisOK) {
+                    timeSlider.setDisable(false);
+                    timeSlider.setValue(0);
+                    if (stageReadyCallback != null) stageReadyCallback.run(); // فعال‌کردن Start از بیرون
+                }
+            }
+
         }
 
         st.currentLine    = null;
@@ -1143,22 +1240,28 @@ final class GameController {
 
 
     /* ---------------- Collision / Explosion ---------------- */
+    // برخورد با معیار فاصله‌ی مرکز به مرکز (ظاهر نرم مثل قبل)
     void enableSteamCollision(Node a, Node b) {
-        final double COLLISION_DIST = 8;
-        final double OFFSET = 5;
+        final double COLLISION_DIST = 12.0; // آستانه‌ی فاصله؛ در صورت نیاز 10..16 تنظیم کن
+        final double BUMP           = 6.0;  // میزان پرش ملایم بعد از برخورد
+
         ExplosionPlayer explosion = explosionFactory.get();
 
         AnimationTimer timer = new AnimationTimer() {
-            private boolean bumped = false;
+            private boolean handled = false;
+
             @Override public void handle(long now) {
+                // اگر یکی از نودها دیگر در صحنه نیست، تایمر را ببند
+                if (a.getScene() == null || b.getScene() == null) { stop(); return; }
+
+                // مرکز هندسی (همان متدی که داری)
                 Point2D ca = nodeCenter(a);
                 Point2D cb = nodeCenter(b);
 
-                double dx = ca.getX() - cb.getX();
-                double dy = ca.getY() - cb.getY();
+                if (!handled && ca.distance(cb) < COLLISION_DIST) {
+                    handled = true;
 
-                if (!bumped && Math.hypot(dx, dy) < COLLISION_DIST) {
-                    bumped = true;
+                    // +2 packet loss
                     score.addPacketLoss(2);
                     Platform.runLater(() -> {
                         hud.setPacketLoss(score.getPacketLoss());
@@ -1166,24 +1269,33 @@ final class GameController {
                     });
 
                     if (!st.suppressPacketLoss) {
+                        // بامپ خیلی ملایم در راستای عمود بر خط اتصال (همان استایل قدیمی)
+                        double dx = ca.getX() - cb.getX();
+                        double dy = ca.getY() - cb.getY();
                         double len = Math.hypot(dx, dy);
-                        double nx = (len == 0) ? 0 :  (dy / len) * OFFSET;
-                        double ny = (len == 0) ? 0 : -(dx / len) * OFFSET;
+                        double nx = (len == 0) ? 0 :  (dy / len) * BUMP;
+                        double ny = (len == 0) ? 0 : -(dx / len) * BUMP;
+
                         a.getTransforms().add(new Translate(nx, ny));
                         b.getTransforms().add(new Translate(-nx, -ny));
 
+                        // موج impact مثل قبل
                         if (!st.suppressImpact) {
                             double cx = (ca.getX() + cb.getX()) * 0.5;
                             double cy = (ca.getY() + cb.getY()) * 0.5;
                             explosion.explode(cx, cy);
                         }
                     }
-                    stop();
+
+                    stop(); // همین یک بار برای این جفت کافی است
                 }
             }
         };
+
         timer.start();
     }
+
+
 
 
     /* ---------------- Final Win UI (مثل قبل) ---------------- */
@@ -1695,13 +1807,21 @@ final class Level3 implements Level {
         spy4.xProperty().bind(c4.xProperty().add(c4.getWidth()/2.0).subtract(18));
         spy4.yProperty().bind(c4.yProperty().add(c4.getHeight()/2.0).add(9));
 
-        // دایره‌ها نامرئی بمانند (ولی برای سیم‌کشی فعال‌اند)
-        c1_trR.setVisible(false);
-        c2_trL.setVisible(false);
-        c3_trR.setVisible(false);
-        c4_trR.setVisible(false);
-        c5_trL1.setVisible(false);
-        c5_trL2.setVisible(false);
+        // نامرئی ولی قابل پیک (رویداد ماوس می‌گیرن)
+        c1_trR.setOpacity(0.0);
+        c2_trL.setOpacity(0.0);
+        c3_trR.setOpacity(0.0);
+        c4_trR.setOpacity(0.0);
+        c5_trL1.setOpacity(0.0);
+        c5_trL2.setOpacity(0.0);
+
+        // محض اطمینان
+        c1_trR.setMouseTransparent(false);
+        c2_trL.setMouseTransparent(false);
+        c3_trR.setMouseTransparent(false);
+        c4_trR.setMouseTransparent(false);
+        c5_trL1.setMouseTransparent(false);
+        c5_trL2.setMouseTransparent(false);
 
         // --- مثلث‌های نمایشی چسبیده به مرکز Circleها ---
         java.util.function.Function<Boolean, Polygon> triShape = pointRight -> {
@@ -1717,26 +1837,38 @@ final class Level3 implements Level {
         Group tri_c1  = new Group(triShape.apply(true));   // راست‌نگر
         tri_c1.layoutXProperty().bind(c1_trR.centerXProperty());
         tri_c1.layoutYProperty().bind(c1_trR.centerYProperty());
+        tri_c1.setMouseTransparent(true);
+
 
         Group tri_c2  = new Group(triShape.apply(false));  // چپ‌نگر
         tri_c2.layoutXProperty().bind(c2_trL.centerXProperty());
         tri_c2.layoutYProperty().bind(c2_trL.centerYProperty());
+        tri_c2.setMouseTransparent(true);
+
 
         Group tri_c3  = new Group(triShape.apply(true));
         tri_c3.layoutXProperty().bind(c3_trR.centerXProperty());
         tri_c3.layoutYProperty().bind(c3_trR.centerYProperty());
+        tri_c3.setMouseTransparent(true);
+
 
         Group tri_c4  = new Group(triShape.apply(true));
         tri_c4.layoutXProperty().bind(c4_trR.centerXProperty());
         tri_c4.layoutYProperty().bind(c4_trR.centerYProperty());
+        tri_c4.setMouseTransparent(true);
+
 
         Group tri_c5a = new Group(triShape.apply(false));
         tri_c5a.layoutXProperty().bind(c5_trL1.centerXProperty());
         tri_c5a.layoutYProperty().bind(c5_trL1.centerYProperty());
+        tri_c5a.setMouseTransparent(true);
+
 
         Group tri_c5b = new Group(triShape.apply(false));
         tri_c5b.layoutXProperty().bind(c5_trL2.centerXProperty());
         tri_c5b.layoutYProperty().bind(c5_trL2.centerYProperty());
+        tri_c5b.setMouseTransparent(true);
+
 
         // گروه‌بندی برای نمایش
         g.getChildren().addAll(
@@ -1767,71 +1899,157 @@ final class Level3 implements Level {
 
     @Override
     public void bind(GameController c, Slider timeSlider, Runnable onWin) {
-        // اتصال رفرنس‌ها به کنترلر
+        // refs
         c.bindStageRefs(view.circles, view.smallRects, timeSlider);
 
-        // درگ: Start را با بدنهٔ c1 جابه‌جا کن
-        // body 0 = c1  →  پورت مربع و مثلث خودش + Start
-        c.enableDragSystem(
-                view.bodies.get(0),
-                java.util.List.of(
-                        view.smallRects.get(0),   // c1_sqR
-                        view.circles.get(0),      // c1_trR
-                        view.startButton          // Start
-                )
-        );
+        // درگ بدنه‌ها (Start همراه بدنه‌ی چپ جابه‌جا شود)
+        if (view.bodies.size() >= 5) {
+            c.enableDragSystem(view.bodies.get(0), java.util.List.of(view.startButton, view.circles.get(0), view.smallRects.get(0)));
+            c.enableDragSystem(view.bodies.get(1), java.util.List.of(view.circles.get(1), view.smallRects.get(1)));
+            c.enableDragSystem(view.bodies.get(2), java.util.List.of(view.circles.get(2), view.smallRects.get(2)));
+            c.enableDragSystem(view.bodies.get(3), java.util.List.of(view.circles.get(3), view.smallRects.get(3)));
+            c.enableDragSystem(view.bodies.get(4), java.util.List.of(view.circles.get(4), view.smallRects.get(4), view.circles.get(5), view.smallRects.get(5)));
+        }
 
-        // body 1 = c2  →  پورت‌های خودش
-        c.enableDragSystem(
-                view.bodies.get(1),
-                java.util.List.of(
-                        view.smallRects.get(1),   // c2_sqL
-                        view.circles.get(1)       // c2_trL
-                )
-        );
-
-        // body 2 = c3
-        c.enableDragSystem(
-                view.bodies.get(2),
-                java.util.List.of(
-                        view.smallRects.get(2),   // c3_sqR
-                        view.circles.get(2)       // c3_trR
-                )
-        );
-
-        // body 3 = c4
-        c.enableDragSystem(
-                view.bodies.get(3),
-                java.util.List.of(
-                        view.smallRects.get(3),   // c4_sqR
-                        view.circles.get(3)       // c4_trR
-                )
-        );
-
-        // body 4 = c5  →  چهار پورت (۲ مربع + ۲ مثلث)
-        c.enableDragSystem(
-                view.bodies.get(4),
-                java.util.List.of(
-                        view.smallRects.get(4),   // c5_sqL1
-                        view.smallRects.get(5),   // c5_sqL2
-                        view.circles.get(4),      // c5_trL1
-                        view.circles.get(5)       // c5_trL2
-                )
-        );
-
-
-        // هوک‌های سیم‌کشی
+        // سیم‌کشی پورت‌ها
         for (Circle cc : view.circles)      cc.setOnMousePressed(c::onStartWireFromCircle);
         for (Rectangle r : view.smallRects) r.setOnMousePressed(c::onStartWireFromSmallRect);
 
-        // استارت مرحله ۳ (فعلاً از منطق مرحله ۲ الگو بگیر؛ بعداً طبق قوانین Stage3 خودت سفارشی می‌کنیم)
+        // Start: اول غیرفعال، با کامل‌شدن سیم‌کشی صحیح (که در onReleaseWire مرحله 3 چک می‌شود) فعال شود
+        view.startButton.setDisable(true);
+        c.setStageReadyCallback(() -> view.startButton.setDisable(false));
+
+        // ---------- هندلر Start ----------
         view.startButton.setOnAction(evt -> {
             if (timeSlider.getValue() != 0) return;
-            // اینجا اجرای Flow مرحله ۳ را می‌گذاریم (حرکت جریان‌ها + awardCoins + برخوردها).
-            // فعلاً اسکلت را نگه می‌داریم تا قوانین مسیرهای دقیق را که می‌خواهی بفرستی، همین‌جا جایگذاری کنیم.
-            onWin.run(); // موقت: برای تست، مستقیماً برنده شو (بعداً حذف می‌کنیم)
+            view.startButton.setDisable(true); // دوباره استارت نخوره
+
+            // مسیر واقعی بر اساس خودِ سیم کاربر (از src به نودِ متصل‌شده)
+            // ⚠️ نیاز به c.connectedOf(...) داریم؛ اگر نداری پایین نوشتم چی اضافه کنی
+            java.util.function.Function<Node, Line> pathOf = (Node src) -> {
+                Node dst = c.connectedOf(src);
+                if (dst == null) return null;
+
+                // مراکز در مختصات صحنه
+                Point2D p1Scene = c.nodeCenterInScene(src);
+                Point2D p2Scene = c.nodeCenterInScene(dst);
+                // تبدیل به مختصات گروه مرحله (parent مارکرها)
+                Point2D p1 = view.group.sceneToLocal(p1Scene);
+                Point2D p2 = view.group.sceneToLocal(p2Scene);
+
+                return new Line(p1.getX(), p1.getY(), p2.getX(), p2.getY());
+            };
+
+            // سازنده‌های مارکر جریان
+            java.util.function.Supplier<Rectangle> mkSq = () -> {
+                Rectangle r = new Rectangle(12, 12, Color.YELLOW);
+                r.setStroke(Color.BLACK); r.setStrokeWidth(1);
+                return r;
+            };
+            java.util.function.Supplier<Polygon> mkTri = () -> {
+                double size = 12, h = size * Math.sqrt(3) / 2.0;
+                Polygon p = new Polygon(0.0, -h, -size/2.0, h/2.0, size/2.0, h/2.0);
+                p.setFill(Color.YELLOW); p.setStroke(Color.BLACK); p.setStrokeWidth(1);
+                return p;
+            };
+
+            // برای برخورد با فلوهای موازی B
+            final java.util.List<Node> activeBMarkers = new java.util.ArrayList<>();
+
+            // شمارنده‌ها برای Win بعد از ۴ دور کامل
+            final int MAX_REPEATS = 4;
+            final int[] counter  = {0}; // چند A تمام شده
+            final int[] pendingB = {0}; // چند B در حال اجراست
+
+            Runnable maybeTryWin = () -> {
+                if (counter[0] >= MAX_REPEATS && pendingB[0] == 0) {
+                    onWin.run();
+                }
+            };
+
+            // ---------- فاز B: یک شاخهٔ رندم از SPY → هدف ----------
+            Runnable spawnPhaseB = () -> {
+                boolean pickTop = java.util.concurrent.ThreadLocalRandom.current().nextBoolean();
+                // rSrc/tSrc همان پورتِ مبدا؛ مقصد را از repo می‌گیریم
+                Rectangle rSrc = pickTop ? view.smallRects.get(2) : view.smallRects.get(3);
+                Circle    tSrc = pickTop ? view.circles.get(2)    : view.circles.get(3);
+
+                Line pathRB = pathOf.apply(rSrc);
+                Line pathTB = pathOf.apply(tSrc);
+                if (pathRB == null || pathTB == null) return; // اگر سیمی نیست، این B را رد کن
+
+                Rectangle flowSqB = mkSq.get();
+                Polygon   flowTriB = mkTri.get();
+                view.group.getChildren().addAll(flowSqB, flowTriB);
+
+                activeBMarkers.add(flowSqB);
+                activeBMarkers.add(flowTriB);
+                pendingB[0]++;
+
+                PathTransition rB = new PathTransition(Duration.seconds(1.6), pathRB, flowSqB);
+                PathTransition tB = new PathTransition(Duration.seconds(1.6), pathTB, flowTriB);
+                rB.setOnFinished(e -> c.awardCoins(2));
+                tB.setOnFinished(e -> c.awardCoins(3));
+
+                // برخورد داخل همین B
+                c.enableSteamCollision(flowTriB, flowSqB);
+
+                ParallelTransition phaseB = new ParallelTransition(rB, tB);
+                phaseB.setOnFinished(e -> {
+                    view.group.getChildren().removeAll(flowSqB, flowTriB);
+                    activeBMarkers.remove(flowSqB);
+                    activeBMarkers.remove(flowTriB);
+                    pendingB[0]--;
+                    maybeTryWin.run();
+                });
+                phaseB.play();
+            };
+
+            // ---------- لوپ فاز A: ۴ بار چپ→وسط + هر بار یک B موازی ----------
+            final Runnable[] loopA = new Runnable[1];
+            loopA[0] = () -> {
+                if (counter[0] >= MAX_REPEATS) { maybeTryWin.run(); return; }
+
+                Line pathRA = pathOf.apply(view.smallRects.get(0)); // مربع چپ → مقصد واقعی
+                Line pathTA = pathOf.apply(view.circles.get(0));    // مثلث چپ → مقصد واقعی
+                if (pathRA == null || pathTA == null) { maybeTryWin.run(); return; }
+
+                Rectangle flowSqA = mkSq.get();
+                Polygon   flowTriA = mkTri.get();
+                view.group.getChildren().addAll(flowSqA, flowTriA);
+
+                PathTransition rA = new PathTransition(Duration.seconds(1.6), pathRA, flowSqA);
+                PathTransition tA = new PathTransition(Duration.seconds(1.6), pathTA, flowTriA);
+                rA.setOnFinished(e -> c.awardCoins(2));
+                tA.setOnFinished(e -> c.awardCoins(3));
+
+                // برخورد داخل A و با همهٔ Bهای فعال
+                c.enableSteamCollision(flowTriA, flowSqA);
+                for (Node n : activeBMarkers) {
+                    c.enableSteamCollision(flowTriA, n);
+                    c.enableSteamCollision(flowSqA, n);
+                }
+
+                ParallelTransition phaseA = new ParallelTransition(rA, tA);
+                phaseA.setOnFinished(e -> {
+                    view.group.getChildren().removeAll(flowSqA, flowTriA);
+                    spawnPhaseB.run();         // بعد از هر A یک B موازی
+                    counter[0]++;              // این دور تمام شد
+                    if (counter[0] < MAX_REPEATS) {
+                        Platform.runLater(loopA[0]);
+                    } else {
+                        maybeTryWin.run();     // همهٔ A ها تمام؛ منتظر Bها
+                    }
+                });
+                phaseA.play();
+            };
+
+            // شروع
+            loopA[0].run();
         });
+
     }
+
 
     @Override
     public LevelView getView() { return view; }
@@ -1883,5 +2101,227 @@ final class Shapes {
 
     static Point2D centerOf(Rectangle r) {
         return r.localToScene(r.getX() + r.getWidth()/2, r.getY() + r.getHeight()/2);
+    }
+}
+
+final class Level4 implements Level {
+    private LevelView view;
+
+    // اندازه کارت‌ها
+    private static final double W = 150, H = 200;
+
+    @Override
+    public LevelView build() {
+        Group g = new Group();
+
+        // بدنه‌ها: بالای چپ (START)، پایین چپ (START)، وسط (DDOS)، راست (END)
+        Rectangle startTop    = Shapes.rect( 80, 100, W, H, Color.web("#1F4733"));
+        Rectangle startBottom = Shapes.rect( 80, 360, W, H, Color.web("#1F4733"));
+        Rectangle ddos        = Shapes.rect(375, 230, W, H, Color.web("#4D2E0B"));
+        Rectangle endCard     = Shapes.rect(670, 230, W, H, Color.web("#471F1F"));
+
+        startTop.setStroke(Color.web("#3BF07B"));    startTop.setStrokeWidth(3);
+        startBottom.setStroke(Color.web("#3BF07B")); startBottom.setStrokeWidth(3);
+        ddos.setStroke(Color.web("#FF8A00"));        ddos.setStrokeWidth(3);
+        endCard.setStroke(Color.web("#F03B3B"));     endCard.setStrokeWidth(3);
+
+        // برچسب‌ها (وسط هر کارت)
+        Text tStart1 = labelCentered(startTop,    "START");
+        Text tStart2 = labelCentered(startBottom, "START");
+        Text tDDOS   = labelCentered(ddos,        "DDOS");
+        Text tEND    = labelCentered(endCard,     "END");
+
+        // دکمه Start مرحله (بالای کارت START بالا)
+        Button startBtn = new Button("Start");
+        startBtn.setPrefSize(70, 30);
+        startBtn.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, #FF6F61, #D7263D);" +
+                        "-fx-text-fill: white; -fx-background-radius: 10;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0, 0, 2);"
+        );
+        double btnX = startTop.getX() + (startTop.getWidth() - startBtn.getPrefWidth()) / 2.0;
+        double btnY = startTop.getY() - startBtn.getPrefHeight() - 8.0;
+        startBtn.setLayoutX(btnX);
+        startBtn.setLayoutY(btnY + 20);
+
+        /* ----------------- helperهای ساخت پورت ----------------- */
+        // مستطیل روی لبه راست/چپ (برای مربع و هگز – hit-target)
+        java.util.function.BiFunction<Rectangle, Double, Rectangle> rightRectPort = (card, oy) -> {
+            Rectangle r = new Rectangle(card.getX() + card.getWidth() - 10, card.getY() + oy - 9, 18, 18);
+            r.setArcWidth(4); r.setArcHeight(4);
+            r.setFill(Color.TRANSPARENT);
+            r.setStroke(Color.web("#FF93AA")); r.setStrokeWidth(2.5);
+            return r;
+        };
+        java.util.function.BiFunction<Rectangle, Double, Rectangle> leftRectPort = (card, oy) -> {
+            Rectangle r = new Rectangle(card.getX() - 18 - 10, card.getY() + oy - 9, 18, 18);
+            r.setArcWidth(4); r.setArcHeight(4);
+            r.setFill(Color.TRANSPARENT);
+            r.setStroke(Color.web("#FF93AA")); r.setStrokeWidth(2.5);
+            return r;
+        };
+
+        // مرکز مثلث سمت راست/چپ کارت و hit-target دایره‌ای نامرئی (برای سیم‌کشی)
+        java.util.function.BiFunction<Rectangle, Double, Circle> rightTriHit = (card, oy) -> {
+            Circle c = new Circle(card.getX() + card.getWidth() + 8, card.getY() + oy, 10);
+            c.setOpacity(0.0); c.setMouseTransparent(false);
+            c.setFill(Color.LIGHTGREEN); c.setStroke(Color.DARKGREEN); c.setStrokeWidth(3);
+            return c;
+        };
+        java.util.function.BiFunction<Rectangle, Double, Circle> leftTriHit = (card, oy) -> {
+            Circle c = new Circle(card.getX() - 8, card.getY() + oy, 10);
+            c.setOpacity(0.0); c.setMouseTransparent(false);
+            c.setFill(Color.LIGHTGREEN); c.setStroke(Color.DARKGREEN); c.setStrokeWidth(3);
+            return c;
+        };
+
+        // ویژوال مثلث (bind به مرکز hit-target)
+        java.util.function.BiFunction<Circle, Boolean, Group> triVisualBind = (hit, pointRight) -> {
+            Polygon p = pointRight
+                    ? new Polygon(-8.0, -8.0, 8.0, 0.0, -8.0, 8.0)   // ►
+                    : new Polygon( 8.0, -8.0,-8.0, 0.0,  8.0, 8.0);  // ◄
+            p.setFill(Color.web("#FFF59D")); p.setStroke(Color.BLACK); p.setStrokeWidth(1.5);
+            Group gVis = new Group(p);
+            gVis.layoutXProperty().bind(hit.centerXProperty());
+            gVis.layoutYProperty().bind(hit.centerYProperty());
+            gVis.setMouseTransparent(true);
+            return gVis;
+        };
+
+        // ویژوال هگز (bind به مرکز مستطیل hit-target)
+        java.util.function.BiFunction<Rectangle, Boolean, Group> hexVisualBind = (hitRect, filled) -> {
+            double size = 10;
+            Polygon hex = new Polygon();
+            for (int i = 0; i < 6; i++) {
+                hex.getPoints().addAll(
+                        size * Math.cos(i * 2 * Math.PI / 6),
+                        size * Math.sin(i * 2 * Math.PI / 6)
+                );
+            }
+            hex.setFill(filled ? Color.WHITE : Color.TRANSPARENT);
+            hex.setStroke(Color.web("#FF93AA")); hex.setStrokeWidth(2.5);
+            Group gVis = new Group(hex);
+            gVis.layoutXProperty().bind(hitRect.xProperty().add(hitRect.widthProperty().divide(2)));
+            gVis.layoutYProperty().bind(hitRect.yProperty().add(hitRect.heightProperty().divide(2)));
+            gVis.setMouseTransparent(true);
+            return gVis;
+        };
+
+        /* ----------------- پورت‌ها طبق سفارش تو ----------------- */
+        // START بالا: [Triangle (راست), Square (راست – توپر)]
+        Circle    stTop_triR      = rightTriHit.apply(startTop, 80.0);
+        Group     stTop_triR_vis  = triVisualBind.apply(stTop_triR, true); // ►
+
+        Rectangle stTop_sqR       = rightRectPort.apply(startTop, 120.0);
+        stTop_sqR.setUserData("SQUARE");  // برای تشخیص نوع اگر بعداً لازم شد
+        stTop_sqR.setFill(Color.WHITE);   // «توپر» طبق خواسته
+
+        // START پایین: [Hex (راست)]
+        Rectangle stBot_hexR      = rightRectPort.apply(startBottom, 100.0);
+        stBot_hexR.setUserData("HEX");
+        Group     stBot_hexR_vis  = hexVisualBind.apply(stBot_hexR, false);
+
+        // DDOS (چپ): [Hex, Square, Triangle]
+        Rectangle ddos_hexL       = leftRectPort.apply(ddos, 60.0);   ddos_hexL.setUserData("HEX");
+        Rectangle ddos_sqL        = leftRectPort.apply(ddos, 100.0);  ddos_sqL.setUserData("SQUARE");
+        Circle    ddos_triL       = leftTriHit.apply(ddos, 140.0);
+        Group     ddos_hexL_vis   = hexVisualBind.apply(ddos_hexL, false);
+        Group     ddos_triL_vis   = triVisualBind.apply(ddos_triL, false); // ◄
+
+        // DDOS (راست): [Triangle, Square, Hex]
+        Circle    ddos_triR       = rightTriHit.apply(ddos, 60.0);
+        Rectangle ddos_sqR        = rightRectPort.apply(ddos, 100.0); ddos_sqR.setUserData("SQUARE");
+        Rectangle ddos_hexR       = rightRectPort.apply(ddos, 140.0); ddos_hexR.setUserData("HEX");
+        Group     ddos_triR_vis   = triVisualBind.apply(ddos_triR, true);  // ►
+        Group     ddos_hexR_vis   = hexVisualBind.apply(ddos_hexR, false);
+
+        // END (چپ): [Hex, Square, Triangle]
+        Rectangle end_hexL        = leftRectPort.apply(endCard, 60.0);  end_hexL.setUserData("HEX");
+        Rectangle end_sqL         = leftRectPort.apply(endCard, 100.0); end_sqL.setUserData("SQUARE");
+        Circle    end_triL        = leftTriHit.apply(endCard, 140.0);
+        Group     end_hexL_vis    = hexVisualBind.apply(end_hexL, false);
+        Group     end_triL_vis    = triVisualBind.apply(end_triL, false); // ◄
+
+        // جمع‌کردن نودها
+        g.getChildren().addAll(
+                startTop, startBottom, ddos, endCard,
+                tStart1, tStart2, tDDOS, tEND,
+
+                // hit-targetها (سیم‌کشی روی این‌ها انجام می‌شود)
+                stTop_triR, stTop_sqR, stBot_hexR,
+                ddos_hexL, ddos_sqL, ddos_triL,
+                ddos_triR, ddos_sqR, ddos_hexR,
+                end_hexL,  end_sqL,  end_triL,
+
+                // ویژوال‌های چسبیده به hit-targetها
+                stTop_triR_vis,
+                stBot_hexR_vis,
+                ddos_hexL_vis, ddos_triL_vis,
+                ddos_triR_vis, ddos_hexR_vis,
+                end_hexL_vis,  end_triL_vis,
+
+                // Start
+                startBtn
+        );
+
+        // خروجی LevelView:
+        view = new LevelView(
+                g,
+                java.util.List.of(startTop, startBottom, ddos, endCard),
+                // فقط پورت‌های مثلث (Circle نامرئی) به همین ترتیب:
+                java.util.List.of(stTop_triR, ddos_triL, ddos_triR, end_triL),
+                // بقیه‌ی پورت‌ها (مربع/هگز) – Rect hit-target ها:
+                java.util.List.of(
+                        stTop_sqR,     // 0
+                        stBot_hexR,    // 1
+                        ddos_sqL,      // 2
+                        ddos_hexL,     // 3
+                        ddos_sqR,      // 4
+                        ddos_hexR,     // 5
+                        end_sqL,       // 6
+                        end_hexL       // 7
+                ),
+                startBtn
+        );
+        return view;
+    }
+
+    @Override
+    public void bind(GameController c, Slider timeSlider, Runnable onWin) {
+        // وصل refs مرحله
+        c.bindStageRefs(view.circles, view.smallRects, timeSlider);
+
+        // درگ سیستم‌ها (Start همراه کارت بالایی جابه‌جا شود)
+        c.enableDragSystem(view.bodies.get(0), java.util.List.of(view.startButton, view.circles.get(0), view.smallRects.get(0)));
+        c.enableDragSystem(view.bodies.get(1), java.util.List.of(view.smallRects.get(1)));
+        c.enableDragSystem(view.bodies.get(2), java.util.List.of(
+                view.circles.get(1), view.circles.get(2),     // ddos_triL, ddos_triR
+                view.smallRects.get(2), view.smallRects.get(3), // ddos_sqL, ddos_hexL
+                view.smallRects.get(4), view.smallRects.get(5)  // ddos_sqR, ddos_hexR
+        ));
+        c.enableDragSystem(view.bodies.get(3), java.util.List.of(
+                view.circles.get(3),       // end_triL
+                view.smallRects.get(6),    // end_sqL
+                view.smallRects.get(7)     // end_hexL
+        ));
+
+        // سیم‌کشی پورت‌ها
+        for (Circle tri : view.circles)      tri.setOnMousePressed(c::onStartWireFromCircle);
+        for (Rectangle r : view.smallRects)  r.setOnMousePressed(c::onStartWireFromSmallRect);
+
+        // فعلاً Start کاری نمی‌کند (قرار است بعداً لاجیک Level4 را بنویسیم)
+        view.startButton.setOnAction(e -> { /* TODO: logic of Level4 flows */ });
+    }
+
+    @Override public LevelView getView() { return view; }
+
+    /* --- برچسب وسط کارت --- */
+    private Text labelCentered(Rectangle card, String txt) {
+        Text t = new Text(txt);
+        t.setFill(Color.WHITE);
+        t.setStyle("-fx-font-size: 26px; -fx-font-weight: bold;");
+        t.xProperty().bind(card.xProperty().add(card.getWidth()/2.0).subtract( (txt.length()<=4 ? 30 : 36) ));
+        t.yProperty().bind(card.yProperty().add(card.getHeight()/2.0).add(9));
+        return t;
     }
 }
