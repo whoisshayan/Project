@@ -522,7 +522,7 @@ interface ShadowFactory { DropShadow get(); }
 /* =========================================================
  *                      CONTROLLER
  * ========================================================= */
-final class GameController {
+    final class GameController {
 
     private final GameState st;
     private final WireBudgetService wireBudget;
@@ -564,6 +564,61 @@ final class GameController {
         this.explosionFactory = explosionFactory;
         this.shadowFactory = shadowFactory;
     }
+
+
+    // بازگرداندن جریان شش‌ضلعی به مبدأ در صورت برخورد با جریان دیگر
+    void enableHexBounceBack(Node hexNode,
+                             Node otherNode,
+                             PathTransition hexTransition,
+                             Runnable onAbort) {
+
+        final double COLLISION_DIST = 12.0;
+        final ExplosionPlayer explosion = explosionFactory.get();
+
+        new AnimationTimer() {
+            private boolean handled = false;
+
+            @Override public void handle(long now) {
+                // اگر یکی حذف شد یا هگزا دیگر در حال حرکت نیست، تمام
+                if (hexNode.getScene() == null || otherNode.getScene() == null
+                        || hexTransition.getStatus() != Animation.Status.RUNNING) {
+                    stop(); return;
+                }
+
+                Point2D ca = nodeCenter(hexNode);
+                Point2D cb = nodeCenter(otherNode);
+
+                if (!handled && ca.distance(cb) < COLLISION_DIST) {
+                    handled = true;
+
+                    // PacketLoss + Impact (در صورت عدم Suppress)
+                    score.addPacketLoss(2);
+                    Platform.runLater(() -> { hud.setPacketLoss(score.getPacketLoss()); binder.syncFrom(hud); });
+                    if (!st.suppressPacketLoss && !st.suppressImpact) {
+                        double cx = (ca.getX() + cb.getX()) * 0.5, cy = (ca.getY() + cb.getY()) * 0.5;
+                        explosion.explode(cx, cy);
+                    }
+
+                    // به‌جای stop روی فرزندِ داخل ParallelTransition، همان انیمیشن را برعکس کن
+                    // از همین لحظه با نرخ منفی ادامه می‌دهد و به مبدا برمی‌گردد.
+                    double r = hexTransition.getRate();
+                    hexTransition.setRate(-Math.abs(r) == 0 ? -1 : -Math.abs(r));
+                    // تضمین اجرا (اگر لحظه‌ای Pause شده باشد)
+                    if (hexTransition.getStatus() != Animation.Status.RUNNING) hexTransition.play();
+
+                    // اعلام ابورت (تا مرحله‌ی راست هگزا را نپذیرد)
+                    if (onAbort != null) onAbort.run();
+
+                    stop();
+                }
+            }
+        }.start();
+    }
+
+
+
+
+
 
     private boolean isConnectedSetToSet(java.util.List<? extends Node> from, java.util.List<? extends Node> to) {
         java.util.Set<Node> toSet   = new java.util.HashSet<>(to);
@@ -1950,6 +2005,7 @@ final class Level3 implements Level {
                 double size = 12, h = size * Math.sqrt(3) / 2.0;
                 Polygon p = new Polygon(0.0, -h, -size/2.0, h/2.0, size/2.0, h/2.0);
                 p.setFill(Color.YELLOW); p.setStroke(Color.BLACK); p.setStrokeWidth(1);
+                p.setUserData("M_HEX");
                 return p;
             };
 
@@ -2104,224 +2160,473 @@ final class Shapes {
     }
 }
 
+// ============== LEVEL 4 =================
 final class Level4 implements Level {
     private LevelView view;
 
-    // اندازه کارت‌ها
+    // پورت‌ها (برای خوانایی در bind)
+    private Circle    stTop_tri;      // START بالا: مثلث
+    private Rectangle stTop_sq;       // START بالا: مربع
+    private Circle    stBot_hex;      // START پایین: شش‌ضلعی
+
+    // DDOS: چپ = H,S,T | راست = T,S,H
+    private Circle    ddL_hex;
+    private Rectangle ddL_sq;
+    private Circle    ddL_tri;
+
+    private Circle    ddR_tri;
+    private Rectangle ddR_sq;
+    private Circle    ddR_hex;
+
+    // END (چپ) = H,S,T
+    private Circle    end_hex;
+    private Rectangle end_sq;
+    private Circle    end_tri;
+
+    // تایمر اعتبارسنجی فعال‌/غیرفعال کردن Start
+    private Timeline validateTimer;
+
+    // ابعاد کارت‌ها
     private static final double W = 150, H = 200;
+    // کاهش سرعت حرکت‌ها در این مرحله: 20% کندتر ⇒ مدت‌زمان × 1.25
+    private static final double TIME_SCALE_SLOWDOWN = 2;
 
     @Override
     public LevelView build() {
         Group g = new Group();
 
-        // بدنه‌ها: بالای چپ (START)، پایین چپ (START)، وسط (DDOS)، راست (END)
-        Rectangle startTop    = Shapes.rect( 80, 100, W, H, Color.web("#1F4733"));
-        Rectangle startBottom = Shapes.rect( 80, 360, W, H, Color.web("#1F4733"));
-        Rectangle ddos        = Shapes.rect(375, 230, W, H, Color.web("#4D2E0B"));
-        Rectangle endCard     = Shapes.rect(670, 230, W, H, Color.web("#471F1F"));
+        /* -------- بدنه‌ها -------- */
+        Rectangle cStartTop = Shapes.rect( 70,  80, W, H, Color.web("#1F4733"));
+        cStartTop.setStroke(Color.web("#3BF07B")); cStartTop.setStrokeWidth(4);
 
-        startTop.setStroke(Color.web("#3BF07B"));    startTop.setStrokeWidth(3);
-        startBottom.setStroke(Color.web("#3BF07B")); startBottom.setStrokeWidth(3);
-        ddos.setStroke(Color.web("#FF8A00"));        ddos.setStrokeWidth(3);
-        endCard.setStroke(Color.web("#F03B3B"));     endCard.setStrokeWidth(3);
+        Rectangle cStartBot = Shapes.rect( 70, 340, W, H, Color.web("#1F4733"));
+        cStartBot.setStroke(Color.web("#3BF07B")); cStartBot.setStrokeWidth(4);
 
-        // برچسب‌ها (وسط هر کارت)
-        Text tStart1 = labelCentered(startTop,    "START");
-        Text tStart2 = labelCentered(startBottom, "START");
-        Text tDDOS   = labelCentered(ddos,        "DDOS");
-        Text tEND    = labelCentered(endCard,     "END");
+        Rectangle cDDOS = Shapes.rect(360, 210, W, H, Color.web("#4D2E0B"));
+        cDDOS.setStroke(Color.web("#FF8A00")); cDDOS.setStrokeWidth(4);
 
-        // دکمه Start مرحله (بالای کارت START بالا)
-        Button startBtn = new Button("Start");
-        startBtn.setPrefSize(70, 30);
-        startBtn.setStyle(
+        Rectangle cEND  = Shapes.rect(655, 210, W, H, Color.web("#471F1F"));
+        cEND.setStroke(Color.web("#F03B3B"));  cEND.setStrokeWidth(4);
+
+        // عناوین
+        Text tStart1 = centeredLabel("START", cStartTop);
+        Text tStart2 = centeredLabel("START", cStartBot);
+        Text tDDOS   = centeredLabel("DDOS",  cDDOS);
+        Text tEND    = centeredLabel("END",   cEND);
+
+        // دکمه Start مرحله (روی لبه بالای کارت START بالا)
+        Button start = new Button("Start");
+        start.setPrefSize(70, 30);
+        start.setStyle(
                 "-fx-background-color: linear-gradient(to bottom right, #FF6F61, #D7263D);" +
                         "-fx-text-fill: white; -fx-background-radius: 10;" +
                         "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0, 0, 2);"
         );
-        double btnX = startTop.getX() + (startTop.getWidth() - startBtn.getPrefWidth()) / 2.0;
-        double btnY = startTop.getY() - startBtn.getPrefHeight() - 8.0;
-        startBtn.setLayoutX(btnX);
-        startBtn.setLayoutY(btnY + 20);
+        double sX = cStartTop.getX() + (cStartTop.getWidth() - start.getPrefWidth())/2.0;
+        double sY = cStartTop.getY() - start.getPrefHeight() - 8;
+        start.setLayoutX(sX);
+        start.setLayoutY(sY + 20); // مشابه سایر مراحل
 
-        /* ----------------- helperهای ساخت پورت ----------------- */
-        // مستطیل روی لبه راست/چپ (برای مربع و هگز – hit-target)
-        java.util.function.BiFunction<Rectangle, Double, Rectangle> rightRectPort = (card, oy) -> {
-            Rectangle r = new Rectangle(card.getX() + card.getWidth() - 10, card.getY() + oy - 9, 18, 18);
-            r.setArcWidth(4); r.setArcHeight(4);
-            r.setFill(Color.TRANSPARENT);
-            r.setStroke(Color.web("#FF93AA")); r.setStrokeWidth(2.5);
-            return r;
-        };
-        java.util.function.BiFunction<Rectangle, Double, Rectangle> leftRectPort = (card, oy) -> {
-            Rectangle r = new Rectangle(card.getX() - 18 - 10, card.getY() + oy - 9, 18, 18);
-            r.setArcWidth(4); r.setArcHeight(4);
-            r.setFill(Color.TRANSPARENT);
-            r.setStroke(Color.web("#FF93AA")); r.setStrokeWidth(2.5);
-            return r;
-        };
+        /* -------- factory‌های پورت‌ها (مثل مرحله 3) -------- */
+        java.util.function.BiFunction<Rectangle, Double, Rectangle> rightSquare =
+                (card, oy) -> smallSquareAt(card.getX()+card.getWidth()-10, card.getY()+oy-9);
+        java.util.function.BiFunction<Rectangle, Double, Rectangle> leftSquare =
+                (card, oy) -> smallSquareAt(card.getX()-28, card.getY()+oy-9);
 
-        // مرکز مثلث سمت راست/چپ کارت و hit-target دایره‌ای نامرئی (برای سیم‌کشی)
-        java.util.function.BiFunction<Rectangle, Double, Circle> rightTriHit = (card, oy) -> {
-            Circle c = new Circle(card.getX() + card.getWidth() + 8, card.getY() + oy, 10);
-            c.setOpacity(0.0); c.setMouseTransparent(false);
-            c.setFill(Color.LIGHTGREEN); c.setStroke(Color.DARKGREEN); c.setStrokeWidth(3);
-            return c;
-        };
-        java.util.function.BiFunction<Rectangle, Double, Circle> leftTriHit = (card, oy) -> {
-            Circle c = new Circle(card.getX() - 8, card.getY() + oy, 10);
-            c.setOpacity(0.0); c.setMouseTransparent(false);
-            c.setFill(Color.LIGHTGREEN); c.setStroke(Color.DARKGREEN); c.setStrokeWidth(3);
-            return c;
-        };
+        java.util.function.BiFunction<Rectangle, Double, Point2D> rightCenter =
+                (card, oy) -> new Point2D(card.getX()+card.getWidth()+8, card.getY()+oy);
+        java.util.function.BiFunction<Rectangle, Double, Point2D> leftCenter =
+                (card, oy) -> new Point2D(card.getX()-8, card.getY()+oy);
 
-        // ویژوال مثلث (bind به مرکز hit-target)
-        java.util.function.BiFunction<Circle, Boolean, Group> triVisualBind = (hit, pointRight) -> {
-            Polygon p = pointRight
-                    ? new Polygon(-8.0, -8.0, 8.0, 0.0, -8.0, 8.0)   // ►
-                    : new Polygon( 8.0, -8.0,-8.0, 0.0,  8.0, 8.0);  // ◄
-            p.setFill(Color.web("#FFF59D")); p.setStroke(Color.BLACK); p.setStrokeWidth(1.5);
-            Group gVis = new Group(p);
-            gVis.layoutXProperty().bind(hit.centerXProperty());
-            gVis.layoutYProperty().bind(hit.centerYProperty());
-            gVis.setMouseTransparent(true);
-            return gVis;
-        };
+        // hit-target برای مثلث/شش‌ضلعی
+        java.util.function.Function<Point2D, Circle> hit =
+                p -> { Circle c = new Circle(p.getX(), p.getY(), 10);
+                    c.setOpacity(0.0); c.setMouseTransparent(false);
+                    c.setStroke(Color.DARKGREEN); c.setStrokeWidth(0); // نامرئی اما پیک‌پذیر
+                    return c; };
 
-        // ویژوال هگز (bind به مرکز مستطیل hit-target)
-        java.util.function.BiFunction<Rectangle, Boolean, Group> hexVisualBind = (hitRect, filled) -> {
-            double size = 10;
-            Polygon hex = new Polygon();
-            for (int i = 0; i < 6; i++) {
-                hex.getPoints().addAll(
-                        size * Math.cos(i * 2 * Math.PI / 6),
-                        size * Math.sin(i * 2 * Math.PI / 6)
-                );
-            }
-            hex.setFill(filled ? Color.WHITE : Color.TRANSPARENT);
-            hex.setStroke(Color.web("#FF93AA")); hex.setStrokeWidth(2.5);
-            Group gVis = new Group(hex);
-            gVis.layoutXProperty().bind(hitRect.xProperty().add(hitRect.widthProperty().divide(2)));
-            gVis.layoutYProperty().bind(hitRect.yProperty().add(hitRect.heightProperty().divide(2)));
-            gVis.setMouseTransparent(true);
-            return gVis;
-        };
+        /* -------- START بالا (راست: T@80, S@120) -------- */
+        stTop_tri = hit.apply(rightCenter.apply(cStartTop, 80.0));   stTop_tri.setUserData("T");
+        stTop_sq  = rightSquare.apply(cStartTop, 120.0);             stTop_sq.setUserData("S");
+        attachTriGlyph(g, stTop_tri, true);
 
-        /* ----------------- پورت‌ها طبق سفارش تو ----------------- */
-        // START بالا: [Triangle (راست), Square (راست – توپر)]
-        Circle    stTop_triR      = rightTriHit.apply(startTop, 80.0);
-        Group     stTop_triR_vis  = triVisualBind.apply(stTop_triR, true); // ►
+        /* -------- START پایین (راست: H@100) -------- */
+        stBot_hex = hit.apply(rightCenter.apply(cStartBot, 100.0));  stBot_hex.setUserData("H");
+        attachHexGlyph(g, stBot_hex, true);
 
-        Rectangle stTop_sqR       = rightRectPort.apply(startTop, 120.0);
-        stTop_sqR.setUserData("SQUARE");  // برای تشخیص نوع اگر بعداً لازم شد
-        stTop_sqR.setFill(Color.WHITE);   // «توپر» طبق خواسته
+        /* -------- DDOS چپ (H@60, S@100, T@140) -------- */
+        ddL_hex = hit.apply(leftCenter.apply(cDDOS, 60.0));   ddL_hex.setUserData("H");
+        ddL_sq  = leftSquare.apply(cDDOS, 100.0);             ddL_sq.setUserData("S");
+        ddL_tri = hit.apply(leftCenter.apply(cDDOS, 140.0));  ddL_tri.setUserData("T");
+        attachHexGlyph(g, ddL_hex, false);
+        attachTriGlyph(g, ddL_tri, false);
 
-        // START پایین: [Hex (راست)]
-        Rectangle stBot_hexR      = rightRectPort.apply(startBottom, 100.0);
-        stBot_hexR.setUserData("HEX");
-        Group     stBot_hexR_vis  = hexVisualBind.apply(stBot_hexR, false);
+        /* -------- DDOS راست (T@60, S@100, H@140) -------- */
+        ddR_tri = hit.apply(rightCenter.apply(cDDOS, 60.0));  ddR_tri.setUserData("T");
+        ddR_sq  = rightSquare.apply(cDDOS, 100.0);            ddR_sq.setUserData("S");
+        ddR_hex = hit.apply(rightCenter.apply(cDDOS, 140.0)); ddR_hex.setUserData("H");
+        attachTriGlyph(g, ddR_tri, true);
+        attachHexGlyph(g, ddR_hex, true);
 
-        // DDOS (چپ): [Hex, Square, Triangle]
-        Rectangle ddos_hexL       = leftRectPort.apply(ddos, 60.0);   ddos_hexL.setUserData("HEX");
-        Rectangle ddos_sqL        = leftRectPort.apply(ddos, 100.0);  ddos_sqL.setUserData("SQUARE");
-        Circle    ddos_triL       = leftTriHit.apply(ddos, 140.0);
-        Group     ddos_hexL_vis   = hexVisualBind.apply(ddos_hexL, false);
-        Group     ddos_triL_vis   = triVisualBind.apply(ddos_triL, false); // ◄
+        /* -------- END چپ (H@60, S@100, T@140) -------- */
+        end_hex = hit.apply(leftCenter.apply(cEND, 60.0));    end_hex.setUserData("H");
+        end_sq  = leftSquare.apply(cEND, 100.0);              end_sq.setUserData("S");
+        end_tri = hit.apply(leftCenter.apply(cEND, 140.0));   end_tri.setUserData("T");
+        attachHexGlyph(g, end_hex, false);
+        attachTriGlyph(g, end_tri, false);
 
-        // DDOS (راست): [Triangle, Square, Hex]
-        Circle    ddos_triR       = rightTriHit.apply(ddos, 60.0);
-        Rectangle ddos_sqR        = rightRectPort.apply(ddos, 100.0); ddos_sqR.setUserData("SQUARE");
-        Rectangle ddos_hexR       = rightRectPort.apply(ddos, 140.0); ddos_hexR.setUserData("HEX");
-        Group     ddos_triR_vis   = triVisualBind.apply(ddos_triR, true);  // ►
-        Group     ddos_hexR_vis   = hexVisualBind.apply(ddos_hexR, false);
-
-        // END (چپ): [Hex, Square, Triangle]
-        Rectangle end_hexL        = leftRectPort.apply(endCard, 60.0);  end_hexL.setUserData("HEX");
-        Rectangle end_sqL         = leftRectPort.apply(endCard, 100.0); end_sqL.setUserData("SQUARE");
-        Circle    end_triL        = leftTriHit.apply(endCard, 140.0);
-        Group     end_hexL_vis    = hexVisualBind.apply(end_hexL, false);
-        Group     end_triL_vis    = triVisualBind.apply(end_triL, false); // ◄
-
-        // جمع‌کردن نودها
+        // گروه‌بندی
         g.getChildren().addAll(
-                startTop, startBottom, ddos, endCard,
+                cStartTop, cStartBot, cDDOS, cEND,
                 tStart1, tStart2, tDDOS, tEND,
-
-                // hit-targetها (سیم‌کشی روی این‌ها انجام می‌شود)
-                stTop_triR, stTop_sqR, stBot_hexR,
-                ddos_hexL, ddos_sqL, ddos_triL,
-                ddos_triR, ddos_sqR, ddos_hexR,
-                end_hexL,  end_sqL,  end_triL,
-
-                // ویژوال‌های چسبیده به hit-targetها
-                stTop_triR_vis,
-                stBot_hexR_vis,
-                ddos_hexL_vis, ddos_triL_vis,
-                ddos_triR_vis, ddos_hexR_vis,
-                end_hexL_vis,  end_triL_vis,
-
-                // Start
-                startBtn
+                // پورت‌ها
+                stTop_sq, stBot_hex, ddL_sq, ddR_sq, end_sq,
+                stTop_tri, ddL_hex, ddL_tri, ddR_tri, ddR_hex, end_hex, end_tri,
+                start
         );
 
-        // خروجی LevelView:
+        // LevelView: لیست‌ها برای کنترل سیم‌کشی (Circleها = T/H ، Rectها = S)
         view = new LevelView(
                 g,
-                java.util.List.of(startTop, startBottom, ddos, endCard),
-                // فقط پورت‌های مثلث (Circle نامرئی) به همین ترتیب:
-                java.util.List.of(stTop_triR, ddos_triL, ddos_triR, end_triL),
-                // بقیه‌ی پورت‌ها (مربع/هگز) – Rect hit-target ها:
-                java.util.List.of(
-                        stTop_sqR,     // 0
-                        stBot_hexR,    // 1
-                        ddos_sqL,      // 2
-                        ddos_hexL,     // 3
-                        ddos_sqR,      // 4
-                        ddos_hexR,     // 5
-                        end_sqL,       // 6
-                        end_hexL       // 7
-                ),
-                startBtn
+                java.util.List.of(cStartTop, cStartBot, cDDOS, cEND),
+                java.util.List.of(stTop_tri, stBot_hex, ddL_hex, ddL_tri, ddR_tri, ddR_hex, end_hex, end_tri),
+                java.util.List.of(stTop_sq, ddL_sq, ddR_sq, end_sq),
+                start
         );
         return view;
     }
 
     @Override
     public void bind(GameController c, Slider timeSlider, Runnable onWin) {
-        // وصل refs مرحله
+        // refs عمومی
         c.bindStageRefs(view.circles, view.smallRects, timeSlider);
 
-        // درگ سیستم‌ها (Start همراه کارت بالایی جابه‌جا شود)
-        c.enableDragSystem(view.bodies.get(0), java.util.List.of(view.startButton, view.circles.get(0), view.smallRects.get(0)));
-        c.enableDragSystem(view.bodies.get(1), java.util.List.of(view.smallRects.get(1)));
-        c.enableDragSystem(view.bodies.get(2), java.util.List.of(
-                view.circles.get(1), view.circles.get(2),     // ddos_triL, ddos_triR
-                view.smallRects.get(2), view.smallRects.get(3), // ddos_sqL, ddos_hexL
-                view.smallRects.get(4), view.smallRects.get(5)  // ddos_sqR, ddos_hexR
-        ));
-        c.enableDragSystem(view.bodies.get(3), java.util.List.of(
-                view.circles.get(3),       // end_triL
-                view.smallRects.get(6),    // end_sqL
-                view.smallRects.get(7)     // end_hexL
-        ));
+        // درگ سیستم‌ها (Start همراه کارت START بالا)
+        c.enableDragSystem(view.bodies.get(0), java.util.List.of(view.startButton, stTop_tri, stTop_sq));
+        c.enableDragSystem(view.bodies.get(1), java.util.List.of(stBot_hex));
+        c.enableDragSystem(view.bodies.get(2), java.util.List.of(ddL_hex, ddL_sq, ddL_tri, ddR_tri, ddR_sq, ddR_hex));
+        c.enableDragSystem(view.bodies.get(3), java.util.List.of(end_hex, end_sq, end_tri));
 
-        // سیم‌کشی پورت‌ها
-        for (Circle tri : view.circles)      tri.setOnMousePressed(c::onStartWireFromCircle);
-        for (Rectangle r : view.smallRects)  r.setOnMousePressed(c::onStartWireFromSmallRect);
+        // سیم‌کشی
+        for (Circle cc : view.circles)      cc.setOnMousePressed(c::onStartWireFromCircle);
+        for (Rectangle r : view.smallRects) r.setOnMousePressed(c::onStartWireFromSmallRect);
 
-        // فعلاً Start کاری نمی‌کند (قرار است بعداً لاجیک Level4 را بنویسیم)
-        view.startButton.setOnAction(e -> { /* TODO: logic of Level4 flows */ });
+        // Start اول غیرفعال
+        view.startButton.setDisable(true);
+
+        // اعتبارسنجیِ سیم‌کشی: چپِ DDOS باید هم‌نوع↔هم‌نوع باشد، راستِ DDOS به END باید پوشش ۱-به-۱ بدهد (نوع مهم نیست)
+        Runnable revalidate = () -> {
+            boolean leftOK =
+                    (c.connectedOf(stTop_tri) == ddL_tri) &&
+                            (c.connectedOf(stTop_sq)  == ddL_sq)  &&
+                            (c.connectedOf(stBot_hex) == ddL_hex);
+
+            boolean rightOK = isBijectionConnected(
+                    c,
+                    java.util.List.of(ddR_tri, ddR_sq, ddR_hex),
+                    java.util.List.of(end_hex, end_sq, end_tri)
+            );
+
+            view.startButton.setDisable(!(leftOK && rightOK));
+        };
+
+        // تایمر سبک برای آپدیت وضعیت (هر 200ms) — تا وقتی این مرحله فعاله
+        validateTimer = new Timeline(new KeyFrame(Duration.millis(200), e -> revalidate.run()));
+        validateTimer.setCycleCount(Animation.INDEFINITE);
+        validateTimer.play();
+
+        // سازنده‌های مارکر جریان (با userData برای تشخیص نوع مارکر)
+        java.util.function.Supplier<Rectangle> mkSq = () -> {
+            Rectangle r = new Rectangle(12, 12, Color.YELLOW);
+            r.setStroke(Color.BLACK); r.setStrokeWidth(1);
+            r.setUserData("M_SQ");
+            return r;
+        };
+        java.util.function.Supplier<Polygon> mkTri = () -> {
+            double size=12, h=size*Math.sqrt(3)/2.0;
+            Polygon p=new Polygon(0.0,-h,-size/2.0,h/2.0,size/2.0,h/2.0);
+            p.setFill(Color.YELLOW); p.setStroke(Color.BLACK); p.setStrokeWidth(1);
+            p.setUserData("M_TRI");
+            return p;
+        };
+        java.util.function.Supplier<Polygon> mkHex = () -> {
+            double R=8;
+            Polygon p = new Polygon(
+                    R,0, R/2, Math.sqrt(3)*R/2, -R/2, Math.sqrt(3)*R/2,
+                    -R,0, -R/2,-Math.sqrt(3)*R/2, R/2,-Math.sqrt(3)*R/2
+            );
+            p.setFill(Color.YELLOW); p.setStroke(Color.BLACK); p.setStrokeWidth(1);
+            p.setUserData("M_HEX");
+            return p;
+        };
+
+        // مسیر واقعی سیم از یک نود (بین from و نود متصل‌شده‌اش) در مختصات گروه مرحله
+        java.util.function.Function<Node, Line> pathOf = (Node src) -> {
+            Node dst = c.connectedOf(src);
+            if (dst == null) return null;
+            Point2D p1Scene = c.nodeCenterInScene(src);
+            Point2D p2Scene = c.nodeCenterInScene(dst);
+            Point2D p1 = view.group.sceneToLocal(p1Scene);
+            Point2D p2 = view.group.sceneToLocal(p2Scene);
+            return new Line(p1.getX(), p1.getY(), p2.getX(), p2.getY());
+        };
+
+        // اجرای جریان‌ها
+        view.startButton.setOnAction(evt -> {
+            if (timeSlider.getValue() != 0) return;
+            if (view.startButton.isDisable()) return;
+            view.startButton.setDisable(true);
+
+            // --- کانفیگ تکرار ---
+            final int REPEATS = 4; // چهار بار تکرارِ فرایندِ سمتِ چپ
+
+            // --- زمان‌ها (با کند شدن 20%) ---
+            final Duration BASE_INCOMPAT = Duration.seconds(1.6).multiply(TIME_SCALE_SLOWDOWN); // ناسازگار
+            final Duration BASE_COMPAT   = BASE_INCOMPAT.multiply(0.5);                          // سازگار = نصفِ ناسازگار
+
+            // --- سازگاری پورت مبدا با مقصد (UserData: "T","S","H") ---
+            java.util.function.Function<Node, Boolean> isCompatible = (Node src) -> {
+                Node dst = c.connectedOf(src);
+                if (dst == null) return false;
+                Object su = src.getUserData(), du = dst.getUserData();
+                return su != null && su.equals(du);
+            };
+            java.util.function.Function<Node, Duration> durationFor =
+                    (Node src) -> isCompatible.apply(src) ? BASE_COMPAT : BASE_INCOMPAT;
+
+            // --- اینترپولاتورهای شتاب دوبرابر برای شش‌ضلعی ---
+            final Interpolator ACCEL_POS_2X = new Interpolator() { @Override protected double curve(double t){ return t*t*t; } };
+            final Interpolator ACCEL_NEG_2X = new Interpolator() { @Override protected double curve(double t){ double u=1-t; return 1-u*u*u; } };
+
+            // شمارندهٔ چرخه‌های «شروع‌شده» سمت چپ و تعداد فازهای راستِ درحال اجرا
+            final int[] cyclesStarted = {0};
+            final int[] rightsPending = {0};
+
+            // اگر همهٔ چرخه‌ها آغاز شده‌اند و دیگر فازِ راستِ فعالی باقی نمانده، پایان مرحله
+            Runnable maybeFinish = () -> {
+                if (cyclesStarted[0] >= REPEATS && rightsPending[0] == 0) {
+                    onWin.run();
+                }
+            };
+
+            // --- شروع فاز راست برای یک چرخه (می‌تواند با چرخه‌های بعد همپوشانی داشته باشد) ---
+            java.util.function.Consumer<Boolean> startRightPhase = (Boolean hexCanGoRight) -> {
+                // مسیرهای DDOS(Right) → END
+                Line pR_tri = pathOf.apply(ddR_tri);
+                Line pR_sq  = pathOf.apply(ddR_sq );
+                Line pR_hex = pathOf.apply(ddR_hex);
+
+                if (pR_tri == null || pR_sq == null) { // حداقل دو مسیر لازم است
+                    maybeFinish.run();
+                    return;
+                }
+
+                java.util.List<Node> rightPorts = new java.util.ArrayList<>();
+                java.util.List<Line> rightPaths = new java.util.ArrayList<>();
+                rightPorts.add(ddR_tri); rightPaths.add(pR_tri);
+                rightPorts.add(ddR_sq ); rightPaths.add(pR_sq);
+                if (hexCanGoRight && pR_hex != null) {
+                    rightPorts.add(ddR_hex); rightPaths.add(pR_hex);
+                }
+
+                // انتخاب مارکرها: اگر هگزا از چپ برنگشته، مجاز است؛ وگرنه فقط T,S
+                java.util.List<java.util.function.Supplier<Node>> choices = (hexCanGoRight && pR_hex != null)
+                        ? new java.util.ArrayList<>(java.util.List.of(
+                        () -> mkTri.get(), () -> (Node) mkSq.get(), () -> mkHex.get()
+                ))
+                        : new java.util.ArrayList<>(java.util.List.of(
+                        () -> mkTri.get(), () -> (Node) mkSq.get()
+                ));
+                java.util.Collections.shuffle(choices, java.util.concurrent.ThreadLocalRandom.current());
+
+                java.util.List<Node> markers = new java.util.ArrayList<>();
+                for (int i = 0; i < rightPorts.size(); i++) markers.add(choices.get(i).get());
+                view.group.getChildren().addAll(markers);
+
+                java.util.List<PathTransition> transitions = new java.util.ArrayList<>();
+                for (int i = 0; i < rightPorts.size(); i++) {
+                    Node port = rightPorts.get(i);
+                    Line path = rightPaths.get(i);
+                    Node marker = markers.get(i);
+
+                    PathTransition pr = new PathTransition(durationFor.apply(port), path, marker);
+                    if ("M_HEX".equals(marker.getUserData())) {
+                        pr.setInterpolator(ACCEL_NEG_2X); // شش‌ضلعی سمت راست همیشه کندشونده
+                    }
+
+                    // ⬅️ امتیازدهی هنگام رسیدن به «سیستم نهایی» (END)
+                    final Node m = marker; // برای استفاده در لامبدا
+                    pr.setOnFinished(ev -> {
+                        Object tag = m.getUserData();
+                        if ("M_TRI".equals(tag)) {
+                            c.awardCoins(3); // مثلث
+                        } else if ("M_SQ".equals(tag)) {
+                            c.awardCoins(2); // مربع
+                        } else if ("M_HEX".equals(tag)) {
+                            c.awardCoins(1); // شش‌ضلعی
+                        }
+                    });
+
+                    transitions.add(pr);
+                }
+
+
+                // برخوردهای جفت‌به‌جفت در راست
+                for (int i = 0; i < markers.size(); i++)
+                    for (int j = i + 1; j < markers.size(); j++)
+                        c.enableSteamCollision(markers.get(i), markers.get(j));
+
+                rightsPending[0]++; // یک فاز راست در حال اجراست
+                ParallelTransition rightPhase = new ParallelTransition(transitions.toArray(new Animation[0]));
+                rightPhase.setOnFinished(e2 -> {
+                    view.group.getChildren().removeAll(markers);
+                    rightsPending[0]--;
+                    maybeFinish.run();
+                });
+                rightPhase.play();
+            };
+
+            // --- تابع شروع چرخهٔ سمت چپ (بلافاصله پس از اتمام چپ، چرخهٔ بعد آغاز می‌شود) ---
+            final Runnable[] startLeftCycle = new Runnable[1];
+            startLeftCycle[0] = () -> {
+                if (cyclesStarted[0] >= REPEATS) { maybeFinish.run(); return; }
+                cyclesStarted[0]++;
+
+                // مسیرهای START → DDOS(Left)
+                Line pTriL = pathOf.apply(stTop_tri);
+                Line pSqL  = pathOf.apply(stTop_sq );
+                Line pHexL = pathOf.apply(stBot_hex);
+                if (pTriL == null || pSqL == null || pHexL == null) { maybeFinish.run(); return; }
+
+                // مارکرها
+                Polygon   triL = mkTri.get();
+                Rectangle sqL  = mkSq.get();
+                Polygon   hexL = mkHex.get();
+                view.group.getChildren().addAll(triL, sqL, hexL);
+
+                // ترنزیشن‌ها
+                PathTransition ptTriL = new PathTransition(durationFor.apply(stTop_tri), pTriL, triL);
+                PathTransition ptSqL  = new PathTransition(durationFor.apply(stTop_sq ), pSqL , sqL );
+                PathTransition ptHexL = new PathTransition(durationFor.apply(stBot_hex), pHexL, hexL);
+                ptHexL.setInterpolator(ACCEL_POS_2X); // سمت چپ سازگار ⇒ شتاب مثبت
+
+                // پرچم‌ها برای همگام‌سازی داخلیِ این چرخه
+                final java.util.concurrent.atomic.AtomicBoolean hexLeftSurvived = new java.util.concurrent.atomic.AtomicBoolean(true);
+                final java.util.concurrent.atomic.AtomicBoolean leftPairDone     = new java.util.concurrent.atomic.AtomicBoolean(false);
+                final java.util.concurrent.atomic.AtomicBoolean hexDone          = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+                // برخوردها: مثلث↔مربع عادی؛ شش‌ضلعی با مثلث/مربع برگشتی
+                c.enableSteamCollision(triL, sqL);
+                c.enableHexBounceBack(hexL, triL, ptHexL, () -> hexLeftSurvived.set(false));
+                c.enableHexBounceBack(hexL, sqL , ptHexL, () -> hexLeftSurvived.set(false));
+
+                // پایان هگزا (چه سالم برسد، چه با rate منفی برگردد)
+                ptHexL.setOnFinished(ev -> {
+                    if (hexL.getParent() instanceof Group g) g.getChildren().remove(hexL);
+                    hexDone.set(true);
+
+                    // وقتی هر دو بخش چپ تمام شدند: فوراً فاز راست را برای همین چرخه شروع کن
+                    if (leftPairDone.get()) {
+                        startRightPhase.accept(hexLeftSurvived.get());
+                        // و بلافاصله چرخهٔ بعدیِ چپ را آغاز کن
+                        Platform.runLater(startLeftCycle[0]);
+                    }
+                });
+                ptHexL.play();
+
+                // زوجِ مثلث+مربع
+                ParallelTransition leftPair = new ParallelTransition(ptTriL, ptSqL);
+                leftPair.setOnFinished(e -> {
+                    view.group.getChildren().removeAll(triL, sqL);
+                    leftPairDone.set(true);
+
+                    if (hexDone.get()) {
+                        startRightPhase.accept(hexLeftSurvived.get());
+                        Platform.runLater(startLeftCycle[0]);
+                    }
+                });
+                leftPair.play();
+            };
+
+            // شروع چرخهٔ اول
+            startLeftCycle[0].run();
+        });
+
+
+
+
     }
 
-    @Override public LevelView getView() { return view; }
 
-    /* --- برچسب وسط کارت --- */
-    private Text labelCentered(Rectangle card, String txt) {
-        Text t = new Text(txt);
+    @Override
+    public LevelView getView() { return view; }
+
+    @Override
+    public void dispose() {
+        if (validateTimer != null) {
+            validateTimer.stop();
+            validateTimer = null;
+        }
+    }
+
+    /* --------- helpers محلی --------- */
+
+    private static Rectangle smallSquareAt(double x, double y){
+        Rectangle r = new Rectangle(x, y, 18, 18);
+        r.setArcWidth(4); r.setArcHeight(4);
+        r.setFill(Color.WHITE);
+        r.setStroke(Color.web("#FF93AA")); r.setStrokeWidth(2.5);
+        return r;
+    }
+
+    private static Text centeredLabel(String s, Rectangle card){
+        Text t = new Text(s);
         t.setFill(Color.WHITE);
-        t.setStyle("-fx-font-size: 26px; -fx-font-weight: bold;");
-        t.xProperty().bind(card.xProperty().add(card.getWidth()/2.0).subtract( (txt.length()<=4 ? 30 : 36) ));
-        t.yProperty().bind(card.yProperty().add(card.getHeight()/2.0).add(9));
+        t.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
+
+        // چسباندن موقعیت متن به کارت؛ با جابه‌جایی/درگ کارت، متن هم حرکت می‌کند
+        t.xProperty().bind(card.xProperty().add(card.widthProperty().divide(2)).subtract(28));
+        t.yProperty().bind(card.yProperty().add(card.heightProperty().divide(2)).add(8));
+
         return t;
+    }
+
+    private static void attachTriGlyph(Group g, Circle c, boolean pointRight){
+        Polygon p = pointRight
+                ? new Polygon(-8.0,-8.0, 8.0,0.0, -8.0,8.0)   // ►
+                : new Polygon( 8.0,-8.0,-8.0,0.0,  8.0,8.0);   // ◄
+        p.setFill(Color.web("#FFF59D")); p.setStroke(Color.BLACK); p.setStrokeWidth(1.5);
+        Group wrp = new Group(p);
+        wrp.setMouseTransparent(true);
+        wrp.layoutXProperty().bind(c.centerXProperty());
+        wrp.layoutYProperty().bind(c.centerYProperty());
+        g.getChildren().add(wrp);
+    }
+
+    private static void attachHexGlyph(Group g, Circle c, boolean pointRight){
+        // صرفاً جهت ظاهری؛ جهت‌گیری مهم نیست
+        double R=11;
+        Polygon p = new Polygon(
+                R,0, R/2, Math.sqrt(3)*R/2, -R/2, Math.sqrt(3)*R/2,
+                -R,0, -R/2,-Math.sqrt(3)*R/2, R/2,-Math.sqrt(3)*R/2
+        );
+        p.setFill(Color.web("#FFF59D")); p.setStroke(Color.BLACK); p.setStrokeWidth(1.5);
+        Group wrp = new Group(p);
+        wrp.setMouseTransparent(true);
+        wrp.layoutXProperty().bind(c.centerXProperty());
+        wrp.layoutYProperty().bind(c.centerYProperty());
+        g.getChildren().add(wrp);
+    }
+
+    /** بررسی پوشش ۱-به-۱ بین سه پورت DDOS-Right و سه پورت END-Left (نوع مهم نیست). */
+    private static boolean isBijectionConnected(GameController c, java.util.List<Node> from, java.util.List<Node> to){
+        java.util.Set<Node> toSet = new java.util.HashSet<>(to);
+        java.util.Set<Node> seen  = new java.util.HashSet<>();
+        for (Node f : from) {
+            Node other = c.connectedOf(f);
+            if (other == null || !toSet.contains(other)) return false;
+            seen.add(other);
+        }
+        return seen.size() == from.size();
     }
 }
