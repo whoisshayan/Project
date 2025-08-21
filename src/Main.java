@@ -2797,7 +2797,6 @@ final class Level5 implements Level {
     public LevelView build() {
         Group g = new Group();
 
-        // بدنه‌ها (چیدمان کوچک)
         Rectangle cStart  = card( 40, 170, W, H, Color.web("#1F4733"), Color.web("#3BF07B"));
         Rectangle cVpnTop = card(180, 120, W, H, Color.web("#1B2327"), Color.web("#49F4FF"));
         Rectangle cVpnBot = card(200, 300, W, H, Color.web("#1B2327"), Color.web("#49F4FF"));
@@ -2806,16 +2805,14 @@ final class Level5 implements Level {
         Rectangle cDDOS   = card(560, 160, W, H, Color.web("#2B241E"), Color.web("#FF8A00"));
         Rectangle cEnd    = card(680, 170, W, H, Color.web("#2A2020"), Color.web("#FF5C86"));
 
-        // لیبل‌ها
         Text tStart = centeredLabel("START", cStart);
         Text tVpn1  = centeredLabel("VPN",   cVpnTop);
         Text tVpn2  = centeredLabel("VPN",   cVpnBot);
         Text tSpy1  = centeredLabel("SPY",   cSpyL);
         Text tSpy2  = centeredLabel("SPY",   cSpyR);
-        Text tDdos  = centeredLabel("DDOS",  cDDOS);
+        Text tDdos  = centeredLabel("ANTI VIRUS",  cDDOS);
         Text tEnd   = centeredLabel("END",   cEnd);
 
-        // دکمه Start بالای کارت START
         Button startBtn = new Button("Start");
         startBtn.setPrefSize(35, 15);
         startBtn.setStyle(
@@ -2826,22 +2823,18 @@ final class Level5 implements Level {
         startBtn.setLayoutX(cStart.getX() + (cStart.getWidth()-startBtn.getPrefWidth())/2.0);
         startBtn.setLayoutY(cStart.getY() - startBtn.getPrefHeight() - 4);
 
-        // --- پورت‌ها ---
         double g2S = gap2(cStart), g2T = gap2(cVpnTop), g2B = gap2(cSpyL), g3D = gap3(cDDOS);
 
-        // START: راست (مثلث بالا، مربع پایین)
         stTri = hitAt(rightCx(cStart), cY(cStart) - g2S);
         attachTriGlyph(g, stTri, true);
         stSq  = smallSquareAt(rightCx(cStart), cY(cStart) + g2S);
 
-        // VPN بالا
         vpnTopTriL = hitAt(leftCx(cVpnTop),  cY(cVpnTop));
         attachTriGlyph(g, vpnTopTriL, false);
         vpnTopSqR  = smallSquareAt(rightCx(cVpnTop), cY(cVpnTop) - g2T);
         vpnTopTriR = hitAt(rightCx(cVpnTop), cY(cVpnTop) + g2T);
         attachTriGlyph(g, vpnTopTriR, true);
 
-        // VPN پایین
         vpnBotSqL  = smallSquareAt(leftCx(cVpnBot), cY(cVpnBot));
         vpnBotHexR = hitAt(rightCx(cVpnBot), cY(cVpnBot));
         attachHexGlyph(g, vpnBotHexR);
@@ -2852,17 +2845,18 @@ final class Level5 implements Level {
         attachTriGlyph(g, spyL_triL, false);
         spyL_sqR  = smallSquareAt(rightCx(cSpyL), cY(cSpyL) - g2B);
         spyL_triR = hitAt(rightCx(cSpyL),         cY(cSpyL) + g2B);
-        attachTriGlyph(g, spyL_triR, true);
+        // بدون گلیف؛ نامرئی و غیرقابل‌کلیک
+        spyL_triR.setMouseTransparent(true);
 
-        // SPY راست (هر دو سمت)
+        // SPY راست
         spyR_sqL  = smallSquareAt(leftCx(cSpyR),  cY(cSpyR) - g2B);
         spyR_triL = hitAt(leftCx(cSpyR),          cY(cSpyR) + g2B);
-        attachTriGlyph(g, spyR_triL, false);
+        // بدون گلیف؛ نامرئی و غیرقابل‌کلیک
+        spyR_triL.setMouseTransparent(true);
         spyR_sqR  = smallSquareAt(rightCx(cSpyR), cY(cSpyR) - g2B);
         spyR_triR = hitAt(rightCx(cSpyR),         cY(cSpyR) + g2B);
         attachTriGlyph(g, spyR_triR, true);
 
-        // DDOS: چپ= [sq, tri, hex] / راست= [tri, sq, hex]
         ddL_sq  = smallSquareAt(leftCx(cDDOS),  cY(cDDOS) - g3D);
         ddL_tri = hitAt(leftCx(cDDOS),          cY(cDDOS));
         attachTriGlyph(g, ddL_tri, false);
@@ -2875,42 +2869,36 @@ final class Level5 implements Level {
         ddR_hex = hitAt(rightCx(cDDOS),         cY(cDDOS) + g3D);
         attachHexGlyph(g, ddR_hex);
 
-        // END: چپ= [hex, sq, tri]
         end_hex = hitAt(leftCx(cEnd),           cY(cEnd) - g3D);
         attachHexGlyph(g, end_hex);
         end_sq  = smallSquareAt(leftCx(cEnd),   cY(cEnd));
         end_tri = hitAt(leftCx(cEnd),           cY(cEnd) + g3D);
         attachTriGlyph(g, end_tri, false);
 
-        // افزودن به گروه
         g.getChildren().addAll(
                 cStart, cVpnTop, cVpnBot, cSpyL, cSpyR, cDDOS, cEnd,
                 tStart, tVpn1, tVpn2, tSpy1, tSpy2, tDdos, tEnd,
                 startBtn,
-                // پورت‌های مستطیلی (مربع)
                 stSq, vpnTopSqR, vpnBotSqL, spyL_sqL, spyL_sqR, spyR_sqL, spyR_sqR, ddL_sq, ddR_sq, end_sq,
-                // پورت‌های دایره‌ای (مثلث/شش‌ضلعی) — خود Circleها نامرئی‌اند اما پیک‌پذیرند
                 stTri, vpnTopTriL, vpnTopTriR, vpnBotHexR,
                 spyL_triL, spyL_triR, spyR_triL, spyR_triR,
                 ddL_tri, ddL_hex, ddR_tri, ddR_hex,
                 end_hex, end_tri
         );
 
-        // LevelView
         view = new LevelView(
                 g,
                 List.of(cStart, cVpnTop, cVpnBot, cSpyL, cSpyR, cDDOS, cEnd),
-                // circles: همه‌ی مثلث/شش‌ضلعی‌ها
                 List.of(stTri, vpnTopTriL, vpnTopTriR, vpnBotHexR,
                         spyL_triL, spyL_triR, spyR_triL, spyR_triR,
                         ddL_tri, ddL_hex, ddR_tri, ddR_hex,
                         end_hex, end_tri),
-                // rectangles: همه‌ی مربع‌ها
                 List.of(stSq, vpnTopSqR, vpnBotSqL, spyL_sqL, spyL_sqR, spyR_sqL, spyR_sqR, ddL_sq, ddR_sq, end_sq),
                 startBtn
         );
         return view;
     }
+
 
     @Override
     public void bind(GameController c, Slider timeSlider, Runnable onWin) {
@@ -2928,10 +2916,10 @@ final class Level5 implements Level {
                 List.of(vpnBotSqL, vpnBotHexR));
 
         c.enableDragSystem(view.bodies.get(3), // SPY(left)
-                List.of(spyL_sqL, spyL_triL, spyL_sqR, spyL_triR));
+                List.of(spyL_sqL, spyL_triL));
 
         c.enableDragSystem(view.bodies.get(4), // SPY(right)
-                List.of(spyR_sqL, spyR_triL, spyR_sqR, spyR_triR));
+                List.of(spyR_sqR, spyR_triR));
 
         c.enableDragSystem(view.bodies.get(5), // DDOS
                 List.of(ddL_sq, ddL_tri, ddL_hex, ddR_tri, ddR_sq, ddR_hex));
@@ -2946,34 +2934,32 @@ final class Level5 implements Level {
         // Start در ابتدا غیرفعال
         view.startButton.setDisable(true);
 
+        if (spyL_sqR != null) { spyL_sqR.setVisible(false); spyL_sqR.setMouseTransparent(true); }
+        if (spyL_triR != null){ spyL_triR.setVisible(false); spyL_triR.setMouseTransparent(true); }
+        if (spyR_sqL != null) { spyR_sqL.setVisible(false); spyR_sqL.setMouseTransparent(true); }
+        if (spyR_triL != null){ spyR_triL.setVisible(false); spyR_triL.setMouseTransparent(true); }
+
+
+
         // اعتبارسنجی دقیقِ همان الگوی اتصال تصویر
         Runnable revalidate = () -> {
             boolean ok =
-                    // START → VPNs
                     c.isConnected(stTri, vpnTopTriL) &&
                             c.isConnected(stSq,  vpnBotSqL)  &&
 
-                            // VPN(top) → SPY(left)
                             c.isConnected(vpnTopSqR,  spyL_sqL)  &&
                             c.isConnected(vpnTopTriR, spyL_triL) &&
 
-                            // SPY(left) → SPY(right)
-                            c.isConnected(spyL_sqR,  spyR_sqL)  &&
-                            c.isConnected(spyL_triR, spyR_triL) &&
-
-                            // SPY(right) → DDOS(left)
                             c.isConnected(spyR_sqR,  ddL_sq)    &&
                             c.isConnected(spyR_triR, ddL_tri)   &&
 
-                            // VPN(bottom) → DDOS(left)
                             c.isConnected(vpnBotHexR, ddL_hex)  &&
 
-                            // DDOS(right) → END(left)
                             c.isConnected(ddR_tri, end_tri)     &&
                             c.isConnected(ddR_sq,  end_sq)      &&
                             c.isConnected(ddR_hex, end_hex);
 
-            Platform.runLater(() -> view.startButton.setDisable(!ok));
+            view.startButton.setDisable(!ok);
         };
 
         // تایمر سبک (هر 200ms) برای ارزیابی وضعیت سیم‌کشی
