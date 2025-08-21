@@ -14,38 +14,42 @@ import javafx.stage.Stage;
 
 public class test extends Application {
 
-    // انواع پورت
     enum Port { SQUARE, TRIANGLE, HEXAGON, CIRCLE }
     enum Side { LEFT, RIGHT }
 
-    // کلاس کارت
     static class NodeCard extends Group {
         final double w, h;
         final Rectangle body;
 
         NodeCard(double x, double y, double w, double h, Color fill, Color stroke, String... labels) {
-            this.w = w; this.h = h;
+            this.w = w / 2.0;
+            this.h = h / 2.0;
 
-            body = new Rectangle(w, h);
-            body.setArcWidth(22);
-            body.setArcHeight(22);
+            body = new Rectangle(this.w, this.h);
+            body.setArcWidth(11);
+            body.setArcHeight(11);
             body.setFill(fill);
             body.setStroke(stroke);
-            body.setStrokeWidth(4);
+            body.setStrokeWidth(2);
 
-            Circle dot = new Circle(w - 16, 16, 7, Color.web("#111"));
-            dot.setEffect(new InnerShadow(3, Color.BLACK));
+            Circle dot = new Circle(this.w - 8, 8, 3.5, Color.web("#111"));
+            dot.setEffect(new InnerShadow(2, Color.BLACK));
             getChildren().addAll(body, dot);
 
+            // center labels
             if (labels.length > 0) {
                 for (int i = 0; i < labels.length; i++) {
-                    Text text = new Text(labels[i]);
-                    text.setFont(Font.font("Segoe UI", FontWeight.BOLD, 18));
-                    text.setFill(Color.WHITE);
-                    text.setX(w / 2 - text.getLayoutBounds().getWidth() / 2);
-                    text.setY((h / (labels.length + 1)) * (i + 1));
-                    text.setTextOrigin(VPos.CENTER);
-                    getChildren().add(text);
+                    Text t = new Text(labels[i]);
+                    t.setFont(Font.font("Segoe UI", FontWeight.BOLD, 9));
+                    t.setFill(Color.WHITE);
+                    t.setTextOrigin(VPos.CENTER);
+                    double yPos = (this.h / (labels.length + 1)) * (i + 1);
+                    t.setY(yPos);
+                    getChildren().add(t);
+                    t.applyCss();
+                    t.setX(this.w / 2 - t.getLayoutBounds().getWidth() / 2);
+                    t.layoutBoundsProperty().addListener((obs, o, n) ->
+                            t.setX(this.w / 2 - n.getWidth() / 2));
                 }
             }
 
@@ -53,6 +57,27 @@ public class test extends Application {
             setLayoutY(y);
         }
 
+        /* placement helpers */
+        private double centerY() { return h / 2.0; }
+        private double gap2()    { return h / 6.0; }
+        private double gap3()    { return h / 4.0; }
+
+        void addCentered(Side side, Port p) {
+            addPort(side, p, centerY());
+        }
+        void addSymmetric2(Side side, Port top, Port bottom) {
+            double g = gap2();
+            addPort(side, top,    centerY() - g);
+            addPort(side, bottom, centerY() + g);
+        }
+        void addSymmetric3(Side side, Port top, Port middle, Port bottom) {
+            double g = gap3();
+            addPort(side, top,    centerY() - g);
+            addPort(side, middle, centerY());
+            addPort(side, bottom, centerY() + g);
+        }
+
+        /* primitive draw */
         void addPort(Side side, Port type, double offsetY) {
             Group g;
             switch (type) {
@@ -62,9 +87,8 @@ public class test extends Application {
                 case CIRCLE:   g = circlePort(); break;
                 default: return;
             }
-
             double portWidth = prefW(g);
-            double x = (side == Side.RIGHT) ? (w - portWidth / 2) : (-portWidth / 2);
+            double x = (side == Side.RIGHT) ? (w - portWidth / 2.0) : (-portWidth / 2.0);
             g.setLayoutX(x);
             g.setLayoutY(offsetY);
             getChildren().add(g);
@@ -72,42 +96,44 @@ public class test extends Application {
 
         private Group squarePort() {
             Color stroke = Color.web("#FF93AA");
-            Rectangle r = new Rectangle(18, 18);
-            r.setArcWidth(4); r.setArcHeight(4);
+            Rectangle r = new Rectangle(9, 9);
+            r.setArcWidth(2); r.setArcHeight(2);
             r.setFill(Color.TRANSPARENT);
             r.setStroke(stroke);
-            r.setStrokeWidth(2.5);
+            r.setStrokeWidth(1.25);
             Group g = new Group(r);
-            g.setUserData(18.0);
+            g.setUserData(9.0);
             return g;
         }
 
         private Group circlePort() {
             Color stroke = Color.web("#FF93AA");
-            Circle c = new Circle(9);
+            Circle c = new Circle(4.5);
             c.setFill(Color.TRANSPARENT);
             c.setStroke(stroke);
-            c.setStrokeWidth(2.5);
+            c.setStrokeWidth(1.25);
             Group g = new Group(c);
-            g.setUserData(18.0);
+            g.setUserData(9.0);
             return g;
         }
 
         private Group trianglePort(boolean pointRight) {
             Color stroke = Color.web("#FF93AA");
             Polygon p = pointRight
-                    ? new Polygon(0.0, 0.0, 16.0, 8.0, 0.0, 16.0)
-                    : new Polygon(16.0, 0.0, 0.0, 8.0, 16.0, 16.0);
+                    ? new Polygon(0.0, 0.0, 8.0, 4.0, 0.0, 8.0)
+                    : new Polygon(8.0, 0.0, 0.0, 4.0, 8.0, 8.0);
             p.setFill(Color.TRANSPARENT);
             p.setStroke(stroke);
-            p.setStrokeWidth(3);
-            return new Group(p);
+            p.setStrokeWidth(1.5);
+            Group g = new Group(p);
+            g.setUserData(9.0);
+            return g;
         }
 
         private Group hexagonPort() {
             Color stroke = Color.web("#FF93AA");
             Polygon p = new Polygon();
-            double size = 10;
+            double size = 5;
             for (int i = 0; i < 6; i++) {
                 p.getPoints().addAll(
                         size * Math.cos(i * 2 * Math.PI / 6),
@@ -116,16 +142,16 @@ public class test extends Application {
             }
             p.setFill(Color.TRANSPARENT);
             p.setStroke(stroke);
-            p.setStrokeWidth(2.5);
+            p.setStrokeWidth(1.25);
             Group g = new Group(p);
-            g.setUserData(20.0);
+            g.setUserData(10.0);
             return g;
         }
 
         private double prefW(Group g) {
             Object v = g.getUserData();
             if (v instanceof Double) return (Double) v;
-            return 16.0;
+            return 8.0;
         }
     }
 
@@ -134,40 +160,49 @@ public class test extends Application {
         Group root = new Group();
         Scene scene = new Scene(root, 900, 700, Color.web("#0C1A3A"));
 
-        // سیستم ۱: بالا-چپ (START) - پورت‌ها: مثلث و مربع
-        NodeCard startCardTop = new NodeCard(80, 100, 150, 200,
+        // START
+        NodeCard startCard = new NodeCard(60, 270, 150, 200,
                 Color.web("#1F4733"), Color.web("#3BF07B"), "START");
-        startCardTop.addPort(Side.RIGHT, Port.TRIANGLE, 80);
-        startCardTop.addPort(Side.RIGHT, Port.SQUARE, 120);
+        startCard.addSymmetric2(Side.RIGHT, Port.TRIANGLE, Port.SQUARE);
 
-        // سیستم ۲: پایین-چپ (START) - پورت: فقط یک شش ضلعی در وسط
-        NodeCard startCardBottom = new NodeCard(80, 360, 150, 200,
-                Color.web("#1F4733"), Color.web("#3BF07B"), "START");
-        startCardBottom.addPort(Side.RIGHT, Port.HEXAGON, 100);
+        // VPN TOP — Left: centered TRIANGLE | Right: symmetric SQUARE + TRIANGLE
+        NodeCard vpnTop = new NodeCard(260, 120, 150, 200,
+                Color.web("#1B2327"), Color.web("#49F4FF"), "VPN");
+        vpnTop.addCentered(Side.LEFT, Port.TRIANGLE);
+        vpnTop.addSymmetric2(Side.RIGHT, Port.SQUARE, Port.TRIANGLE);
 
-        // سیستم ۳: وسط (DDOS) - پورت‌های جدید در دو طرف
-        NodeCard ddosCard = new NodeCard(375, 230, 150, 200,
-                Color.web("#4D2E0B"), Color.web("#FF8A00"), "DDOS");
-        // سمت چپ: شش ضلعی، مربع، مثلث
-        ddosCard.addPort(Side.LEFT, Port.HEXAGON, 60);
-        ddosCard.addPort(Side.LEFT, Port.SQUARE, 100);
-        ddosCard.addPort(Side.LEFT, Port.TRIANGLE, 140);
-        // سمت راست: مثلث، مربع، شش ضلعی
-        ddosCard.addPort(Side.RIGHT, Port.TRIANGLE, 60);
-        ddosCard.addPort(Side.RIGHT, Port.SQUARE, 100);
-        ddosCard.addPort(Side.RIGHT, Port.HEXAGON, 140);
+        // VPN BOTTOM — Left: centered SQUARE | Right: centered HEXAGON
+        NodeCard vpnBottom = new NodeCard(260, 360, 150, 200,
+                Color.web("#1B2327"), Color.web("#49F4FF"), "VPN");
+        vpnBottom.addCentered(Side.LEFT, Port.SQUARE);
+        vpnBottom.addCentered(Side.RIGHT, Port.HEXAGON);
 
-        // سیستم ۴: راست (END) - پورت‌های جدید در سمت چپ
-        NodeCard endCard = new NodeCard(670, 230, 150, 200,
-                Color.web("#471F1F"), Color.web("#F03B3B"), "END");
-        // سمت چپ: شش ضلعی، مربع، مثلث
-        endCard.addPort(Side.LEFT, Port.HEXAGON, 60);
-        endCard.addPort(Side.LEFT, Port.SQUARE, 100);
-        endCard.addPort(Side.LEFT, Port.TRIANGLE, 140);
+        // SPY (قدیمی) — فقط پورت‌های سمت چپ نگه داشته می‌شود
+        NodeCard spyLeft = new NodeCard(380, 230, 150, 200,
+                Color.web("#232633"), Color.web("#B782FF"), "SPY");
+        spyLeft.addSymmetric2(Side.LEFT,  Port.SQUARE,   Port.TRIANGLE);
+        // سمت راست این SPY عمداً بدون پورت
 
-        root.getChildren().addAll(startCardTop, startCardBottom, ddosCard, endCard);
+        // SPY جدید بین SPY قبلی و DDOS — چپ: بدون پورت | راست: مربع و مثلث
+        NodeCard spyRight = new NodeCard(470, 230, 150, 200,
+                Color.web("#232633"), Color.web("#B782FF"), "SPY");
+        // چپ بدون پورت
+        spyRight.addSymmetric2(Side.RIGHT, Port.SQUARE, Port.TRIANGLE);
 
-        stage.setTitle("Level Layout (JavaFX)");
+        // DDOS
+        NodeCard ddosCard = new NodeCard(560, 230, 150, 200,
+                Color.web("#2B241E"), Color.web("#FF8A00"), "DDOS");
+        ddosCard.addSymmetric3(Side.LEFT,  Port.SQUARE,  Port.TRIANGLE, Port.HEXAGON);
+        ddosCard.addSymmetric3(Side.RIGHT, Port.TRIANGLE,Port.SQUARE,   Port.HEXAGON);
+
+        // END
+        NodeCard endCard = new NodeCard(700, 230, 150, 200,
+                Color.web("#2A2020"), Color.web("#FF5C86"), "END");
+        endCard.addSymmetric3(Side.LEFT, Port.HEXAGON, Port.SQUARE, Port.TRIANGLE);
+
+        root.getChildren().addAll(startCard, vpnTop, vpnBottom, spyLeft, spyRight, ddosCard, endCard);
+
+        stage.setTitle("Network Layout (JavaFX)");
         stage.setScene(scene);
         stage.show();
     }

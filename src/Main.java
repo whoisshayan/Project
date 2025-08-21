@@ -1,6 +1,7 @@
 import javafx.animation.*;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.geometry.BoundingBox;
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
@@ -37,8 +38,12 @@ import javafx.scene.shape.Polygon;
 import javafx.geometry.Bounds;
 import javafx.animation.PathTransition;
 import javafx.animation.ParallelTransition;
-
-
+import com.sun.javafx.tk.Toolkit;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.Bindings;
+import javafx.geometry.VPos;
+import com.sun.javafx.tk.Toolkit;
+import com.sun.javafx.tk.FontLoader;
 
 /* =========================================================
  *                      MAIN (App)
@@ -128,17 +133,24 @@ public class Main extends Application {
         Scene menuScene = new Scene(menuRoot, 700, 600);
 
         // Level scene (selector)
-        Button firstLevelButton  = styledButton("1",   82.5, 193, 64, 55, "red");
-        Button secondLevelButton = styledButton("2",  316.5, 193, 64, 55, "red");
-        Button backButtonFromLevel = styledButton("Back", 520, 530, 120, 50, "red");
+        Button firstLevelButton   = styledButton("1",   82.5, 193, 64, 55, "red");
+        Button secondLevelButton  = styledButton("2",  316.5, 193, 64, 55, "red");
+        Button backButtonFromLevel= styledButton("Back", 520, 530, 120, 50, "red");
         Button thirdLevelButton   = styledButton("3",  316.5, 193, 64, 55, "red");
         Button fourthLevelButton  = styledButton("4",  416.5, 193, 64, 55, "red");
+        Button fifthLevelButton   = styledButton("5",  516.5, 193, 64, 55, "red"); // ✅ دکمه مرحله 5
+
         Pane levelRootScene = new Pane();
         levelRootScene.getChildren().add(bgView3);
-        levelRootScene.getChildren().addAll(firstLevelButton, secondLevelButton, thirdLevelButton, fourthLevelButton, backButtonFromLevel);
+        levelRootScene.getChildren().addAll(
+                firstLevelButton, secondLevelButton, thirdLevelButton,
+                fourthLevelButton, fifthLevelButton,                  // ✅ اضافه شد
+                backButtonFromLevel
+        );
         Scene levelScene = new Scene(levelRootScene, 700, 600);
         backButtonFromLevel.setOnAction(e -> primaryStage.setScene(menuScene));
         levelButton.setOnAction(e -> primaryStage.setScene(levelScene));
+
 
         // Settings scene
         Button backButton = styledButton("Back", 290, 465, 120, 50, "red");
@@ -224,6 +236,8 @@ public class Main extends Application {
         lm.register(2, new Level2());
         lm.register(3, new Level3()); // ← اضافه کن
         lm.register(4, new Level4()); // ← همین را اضافه کن
+        lm.register(5, new Level5()); // ✅ ثبت مرحله 5
+
 
 
 
@@ -233,6 +247,10 @@ public class Main extends Application {
         secondLevelButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(2); });
         thirdLevelButton.setOnAction(e  -> { primaryStage.setScene(mainScene); lm.goTo(3); });
         fourthLevelButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(4); });
+        fifthLevelButton.setOnAction(e  -> { primaryStage.setScene(mainScene); lm.goTo(5); }); // ✅ رفتن به مرحله 5
+
+
+
 
         primaryStage.setTitle("BluePrint Hell");
         primaryStage.setScene(menuScene);
@@ -564,6 +582,15 @@ interface ShadowFactory { DropShadow get(); }
         this.explosionFactory = explosionFactory;
         this.shadowFactory = shadowFactory;
     }
+
+
+    void addPacketLoss(int amount) {
+        score.addPacketLoss(amount);
+        hud.setPacketLoss(score.getPacketLoss());
+        binder.syncFrom(hud);
+    }
+
+
 
 
     // بازگرداندن جریان شش‌ضلعی به مبدأ در صورت برخورد با جریان دیگر
@@ -2521,14 +2548,21 @@ final class Level4 implements Level {
                 c.enableHexBounceBack(hexL, sqL , ptHexL, () -> hexLeftSurvived.set(false));
 
                 // پایان هگزا (چه سالم برسد، چه با rate منفی برگردد)
+                ptTriL.setOnFinished(ev -> c.addPacketLoss(1));
+
+                // ✅ وقتی مربع «به DDOS(Left) رسید» → +1 Packet Loss
+                ptSqL.setOnFinished(ev -> c.addPacketLoss(1));
+
+                // ✅ برای شش‌ضلعی: فقط اگر «واقعاً به DDOS(Left) رسیده» باشد (برخورد نکرده باشد) +1
                 ptHexL.setOnFinished(ev -> {
+                    // اگر در طول مسیر برخورد کرده باشد، enableHexBounceBack پرچم را false کرده است
+                    if (hexLeftSurvived.get()) {
+                        c.addPacketLoss(1);
+                    }
                     if (hexL.getParent() instanceof Group g) g.getChildren().remove(hexL);
                     hexDone.set(true);
-
-                    // وقتی هر دو بخش چپ تمام شدند: فوراً فاز راست را برای همین چرخه شروع کن
                     if (leftPairDone.get()) {
                         startRightPhase.accept(hexLeftSurvived.get());
-                        // و بلافاصله چرخهٔ بعدیِ چپ را آغاز کن
                         Platform.runLater(startLeftCycle[0]);
                     }
                 });
@@ -2547,14 +2581,9 @@ final class Level4 implements Level {
                 });
                 leftPair.play();
             };
-
             // شروع چرخهٔ اول
             startLeftCycle[0].run();
         });
-
-
-
-
     }
 
 
@@ -2579,14 +2608,17 @@ final class Level4 implements Level {
         return r;
     }
 
-    private static Text centeredLabel(String s, Rectangle card){
+    private static Text centeredLabel(String s, Rectangle body) {
         Text t = new Text(s);
         t.setFill(Color.WHITE);
-        t.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
+        t.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
 
-        // چسباندن موقعیت متن به کارت؛ با جابه‌جایی/درگ کارت، متن هم حرکت می‌کند
-        t.xProperty().bind(card.xProperty().add(card.widthProperty().divide(2)).subtract(28));
-        t.yProperty().bind(card.yProperty().add(card.heightProperty().divide(2)).add(8));
+        // فقط یک‌بار اندازه را محاسبه می‌کنیم؛ بایندینگ به layoutBounds حذف شد
+        t.applyCss();
+        double w = t.getLayoutBounds().getWidth();
+
+        t.setX(body.getX() + body.getWidth() / 2.0 - w / 2.0);
+        t.setY(body.getY() + body.getHeight() / 2.0 + 5);
 
         return t;
     }
@@ -2628,5 +2660,341 @@ final class Level4 implements Level {
             seen.add(other);
         }
         return seen.size() == from.size();
+    }
+}
+
+// ============== LEVEL 5 =================
+final class Level5 implements Level {
+    private LevelView view;
+
+    // تایمر اعتبارسنجی برای فعال/غیرفعال کردن Start
+    private Timeline validateTimer;
+
+    // ابعاد کارت‌های کوچک مرحله 5
+    private static final double W = 60, H = 80;
+
+    // ---- پورت‌ها (برای bind) ----
+    // START (راست: مثلث، مربع)
+    private Circle    stTri;
+    private Rectangle stSq;
+
+    // VPN بالا: چپ=مثلث | راست=مربع + مثلث
+    private Circle    vpnTopTriL;
+    private Rectangle vpnTopSqR;
+    private Circle    vpnTopTriR;
+
+    // VPN پایین: چپ=مربع | راست=شش‌ضلعی
+    private Rectangle vpnBotSqL;
+    private Circle    vpnBotHexR;
+
+    // SPY چپ: چپ=(مربع،مثلث) | راست=(مربع،مثلث)
+    private Rectangle spyL_sqL;
+    private Circle    spyL_triL;
+    private Rectangle spyL_sqR;
+    private Circle    spyL_triR;
+
+    // SPY راست: چپ=(مربع،مثلث) | راست=(مربع،مثلث)
+    private Rectangle spyR_sqL;
+    private Circle    spyR_triL;
+    private Rectangle spyR_sqR;
+    private Circle    spyR_triR;
+
+    // DDOS: چپ=(مربع،مثلث،شش‌ضلعی) | راست=(مثلث،مربع،شش‌ضلعی)
+    private Rectangle ddL_sq;
+    private Circle    ddL_tri;
+    private Circle    ddL_hex;
+    private Circle    ddR_tri;
+    private Rectangle ddR_sq;
+    private Circle    ddR_hex;
+
+    // END (چپ: شش‌ضلعی، مربع، مثلث)
+    private Circle    end_hex;
+    private Rectangle end_sq;
+    private Circle    end_tri;
+
+    /* ---------- Helpers: ساخت کارت/پورت/لیبل ---------- */
+
+    private static Rectangle card(double x, double y, double w, double h, Color fill, Color stroke) {
+        Rectangle r = new Rectangle(x, y, w, h);
+        r.setArcWidth(7); r.setArcHeight(7);
+        r.setFill(fill);
+        r.setStroke(stroke);
+        r.setStrokeWidth(1.5);
+        return r;
+    }
+
+    /** متن وسط کارت؛ با listener جایگذاری می‌شود تا حلقهٔ بایند نشود. */
+    private static Text centeredLabel(String s, Rectangle body) {
+        Text t = new Text(s);
+        t.setFill(Color.WHITE);
+        t.setStyle("-fx-font-size: 7px; -fx-font-weight: bold;");
+
+        Runnable place = () -> {
+            double cx = body.getX() + body.getWidth()  / 2.0;
+            double cy = body.getY() + body.getHeight() / 2.0;
+            t.setX(cx - t.getLayoutBounds().getWidth() / 2.0);
+            t.setY(cy + 2.5);
+        };
+        body.xProperty().addListener((o,ov,nv)->place.run());
+        body.yProperty().addListener((o,ov,nv)->place.run());
+        body.widthProperty().addListener((o,ov,nv)->place.run());
+        body.heightProperty().addListener((o,ov,nv)->place.run());
+        t.layoutBoundsProperty().addListener((o,ov,nv)->place.run());
+        place.run();
+        return t;
+    }
+
+    private static Rectangle smallSquareAt(double cx, double cy){
+        double s = 4.5;
+        Rectangle r = new Rectangle(cx - s/2, cy - s/2, s, s);
+        r.setArcWidth(1); r.setArcHeight(1);
+        r.setFill(Color.TRANSPARENT);
+        r.setStroke(Color.web("#FF93AA"));
+        r.setStrokeWidth(0.8);
+        return r;
+    }
+
+    private static Circle hitAt(double cx, double cy){
+        Circle c = new Circle(cx, cy, 3);
+        c.setOpacity(0.0);               // نامرئی ولی پیک‌پذیر
+        c.setMouseTransparent(false);
+        return c;
+    }
+
+    private static void attachTriGlyph(Group g, Circle c, boolean pointRight){
+        Polygon p = pointRight
+                ? new Polygon(-4.0,-4.0, 4.0,0.0, -4.0,4.0)
+                : new Polygon( 4.0,-4.0,-4.0,0.0,  4.0,4.0);  // ◄
+        p.setFill(Color.web("#FFF59D")); p.setStroke(Color.BLACK); p.setStrokeWidth(0.6);
+        Group wrap = new Group(p);
+        wrap.setMouseTransparent(true);
+        wrap.layoutXProperty().bind(c.centerXProperty());
+        wrap.layoutYProperty().bind(c.centerYProperty());
+        g.getChildren().add(wrap);
+    }
+
+    private static void attachHexGlyph(Group g, Circle c){
+        double R=5;
+        Polygon p = new Polygon(
+                R,0, R/2, Math.sqrt(3)*R/2, -R/2, Math.sqrt(3)*R/2,
+                -R,0, -R/2,-Math.sqrt(3)*R/2, R/2,-Math.sqrt(3)*R/2
+        );
+        p.setFill(Color.web("#FFF59D")); p.setStroke(Color.BLACK); p.setStrokeWidth(0.6);
+        Group wrap = new Group(p);
+        wrap.setMouseTransparent(true);
+        wrap.layoutXProperty().bind(c.centerXProperty());
+        wrap.layoutYProperty().bind(c.centerYProperty());
+        g.getChildren().add(wrap);
+    }
+
+    private static double cY(Rectangle r) { return r.getY() + r.getHeight()/2.0; }
+    private static double gap2(Rectangle r){ return r.getHeight()/6.0; }
+    private static double gap3(Rectangle r){ return r.getHeight()/4.0; }
+    private static double leftCx(Rectangle r){  return r.getX() - 6; }
+    private static double rightCx(Rectangle r){ return r.getX() + r.getWidth() + 6; }
+
+    @Override
+    public LevelView build() {
+        Group g = new Group();
+
+        // بدنه‌ها (چیدمان کوچک)
+        Rectangle cStart  = card( 40, 170, W, H, Color.web("#1F4733"), Color.web("#3BF07B"));
+        Rectangle cVpnTop = card(180, 120, W, H, Color.web("#1B2327"), Color.web("#49F4FF"));
+        Rectangle cVpnBot = card(200, 300, W, H, Color.web("#1B2327"), Color.web("#49F4FF"));
+        Rectangle cSpyL   = card(320, 160, W, H, Color.web("#232633"), Color.web("#B782FF"));
+        Rectangle cSpyR   = card(440, 160, W, H, Color.web("#232633"), Color.web("#B782FF"));
+        Rectangle cDDOS   = card(560, 160, W, H, Color.web("#2B241E"), Color.web("#FF8A00"));
+        Rectangle cEnd    = card(680, 170, W, H, Color.web("#2A2020"), Color.web("#FF5C86"));
+
+        // لیبل‌ها
+        Text tStart = centeredLabel("START", cStart);
+        Text tVpn1  = centeredLabel("VPN",   cVpnTop);
+        Text tVpn2  = centeredLabel("VPN",   cVpnBot);
+        Text tSpy1  = centeredLabel("SPY",   cSpyL);
+        Text tSpy2  = centeredLabel("SPY",   cSpyR);
+        Text tDdos  = centeredLabel("DDOS",  cDDOS);
+        Text tEnd   = centeredLabel("END",   cEnd);
+
+        // دکمه Start بالای کارت START
+        Button startBtn = new Button("Start");
+        startBtn.setPrefSize(35, 15);
+        startBtn.setStyle(
+                "-fx-background-color: linear-gradient(to bottom right, #FF6F61, #D7263D);" +
+                        "-fx-text-fill: white; -fx-background-radius: 10;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0, 0, 2);"
+        );
+        startBtn.setLayoutX(cStart.getX() + (cStart.getWidth()-startBtn.getPrefWidth())/2.0);
+        startBtn.setLayoutY(cStart.getY() - startBtn.getPrefHeight() - 4);
+
+        // --- پورت‌ها ---
+        double g2S = gap2(cStart), g2T = gap2(cVpnTop), g2B = gap2(cSpyL), g3D = gap3(cDDOS);
+
+        // START: راست (مثلث بالا، مربع پایین)
+        stTri = hitAt(rightCx(cStart), cY(cStart) - g2S);
+        attachTriGlyph(g, stTri, true);
+        stSq  = smallSquareAt(rightCx(cStart), cY(cStart) + g2S);
+
+        // VPN بالا
+        vpnTopTriL = hitAt(leftCx(cVpnTop),  cY(cVpnTop));
+        attachTriGlyph(g, vpnTopTriL, false);
+        vpnTopSqR  = smallSquareAt(rightCx(cVpnTop), cY(cVpnTop) - g2T);
+        vpnTopTriR = hitAt(rightCx(cVpnTop), cY(cVpnTop) + g2T);
+        attachTriGlyph(g, vpnTopTriR, true);
+
+        // VPN پایین
+        vpnBotSqL  = smallSquareAt(leftCx(cVpnBot), cY(cVpnBot));
+        vpnBotHexR = hitAt(rightCx(cVpnBot), cY(cVpnBot));
+        attachHexGlyph(g, vpnBotHexR);
+
+        // SPY چپ
+        spyL_sqL  = smallSquareAt(leftCx(cSpyL),  cY(cSpyL) - g2B);
+        spyL_triL = hitAt(leftCx(cSpyL),          cY(cSpyL) + g2B);
+        attachTriGlyph(g, spyL_triL, false);
+        spyL_sqR  = smallSquareAt(rightCx(cSpyL), cY(cSpyL) - g2B);
+        spyL_triR = hitAt(rightCx(cSpyL),         cY(cSpyL) + g2B);
+        attachTriGlyph(g, spyL_triR, true);
+
+        // SPY راست (هر دو سمت)
+        spyR_sqL  = smallSquareAt(leftCx(cSpyR),  cY(cSpyR) - g2B);
+        spyR_triL = hitAt(leftCx(cSpyR),          cY(cSpyR) + g2B);
+        attachTriGlyph(g, spyR_triL, false);
+        spyR_sqR  = smallSquareAt(rightCx(cSpyR), cY(cSpyR) - g2B);
+        spyR_triR = hitAt(rightCx(cSpyR),         cY(cSpyR) + g2B);
+        attachTriGlyph(g, spyR_triR, true);
+
+        // DDOS: چپ= [sq, tri, hex] / راست= [tri, sq, hex]
+        ddL_sq  = smallSquareAt(leftCx(cDDOS),  cY(cDDOS) - g3D);
+        ddL_tri = hitAt(leftCx(cDDOS),          cY(cDDOS));
+        attachTriGlyph(g, ddL_tri, false);
+        ddL_hex = hitAt(leftCx(cDDOS),          cY(cDDOS) + g3D);
+        attachHexGlyph(g, ddL_hex);
+
+        ddR_tri = hitAt(rightCx(cDDOS),         cY(cDDOS) - g3D);
+        attachTriGlyph(g, ddR_tri, true);
+        ddR_sq  = smallSquareAt(rightCx(cDDOS), cY(cDDOS));
+        ddR_hex = hitAt(rightCx(cDDOS),         cY(cDDOS) + g3D);
+        attachHexGlyph(g, ddR_hex);
+
+        // END: چپ= [hex, sq, tri]
+        end_hex = hitAt(leftCx(cEnd),           cY(cEnd) - g3D);
+        attachHexGlyph(g, end_hex);
+        end_sq  = smallSquareAt(leftCx(cEnd),   cY(cEnd));
+        end_tri = hitAt(leftCx(cEnd),           cY(cEnd) + g3D);
+        attachTriGlyph(g, end_tri, false);
+
+        // افزودن به گروه
+        g.getChildren().addAll(
+                cStart, cVpnTop, cVpnBot, cSpyL, cSpyR, cDDOS, cEnd,
+                tStart, tVpn1, tVpn2, tSpy1, tSpy2, tDdos, tEnd,
+                startBtn,
+                // پورت‌های مستطیلی (مربع)
+                stSq, vpnTopSqR, vpnBotSqL, spyL_sqL, spyL_sqR, spyR_sqL, spyR_sqR, ddL_sq, ddR_sq, end_sq,
+                // پورت‌های دایره‌ای (مثلث/شش‌ضلعی) — خود Circleها نامرئی‌اند اما پیک‌پذیرند
+                stTri, vpnTopTriL, vpnTopTriR, vpnBotHexR,
+                spyL_triL, spyL_triR, spyR_triL, spyR_triR,
+                ddL_tri, ddL_hex, ddR_tri, ddR_hex,
+                end_hex, end_tri
+        );
+
+        // LevelView
+        view = new LevelView(
+                g,
+                List.of(cStart, cVpnTop, cVpnBot, cSpyL, cSpyR, cDDOS, cEnd),
+                // circles: همه‌ی مثلث/شش‌ضلعی‌ها
+                List.of(stTri, vpnTopTriL, vpnTopTriR, vpnBotHexR,
+                        spyL_triL, spyL_triR, spyR_triL, spyR_triR,
+                        ddL_tri, ddL_hex, ddR_tri, ddR_hex,
+                        end_hex, end_tri),
+                // rectangles: همه‌ی مربع‌ها
+                List.of(stSq, vpnTopSqR, vpnBotSqL, spyL_sqL, spyL_sqR, spyR_sqL, spyR_sqR, ddL_sq, ddR_sq, end_sq),
+                startBtn
+        );
+        return view;
+    }
+
+    @Override
+    public void bind(GameController c, Slider timeSlider, Runnable onWin) {
+        // ارجاع‌ها
+        c.bindStageRefs(view.circles, view.smallRects, timeSlider);
+
+        // درگ بدنه‌ها + چسباندن پورت‌ها و Start به هر بدنه
+        c.enableDragSystem(view.bodies.get(0), // START
+                List.of(view.startButton, stTri, stSq));
+
+        c.enableDragSystem(view.bodies.get(1), // VPN(top)
+                List.of(vpnTopTriL, vpnTopSqR, vpnTopTriR));
+
+        c.enableDragSystem(view.bodies.get(2), // VPN(bottom)
+                List.of(vpnBotSqL, vpnBotHexR));
+
+        c.enableDragSystem(view.bodies.get(3), // SPY(left)
+                List.of(spyL_sqL, spyL_triL, spyL_sqR, spyL_triR));
+
+        c.enableDragSystem(view.bodies.get(4), // SPY(right)
+                List.of(spyR_sqL, spyR_triL, spyR_sqR, spyR_triR));
+
+        c.enableDragSystem(view.bodies.get(5), // DDOS
+                List.of(ddL_sq, ddL_tri, ddL_hex, ddR_tri, ddR_sq, ddR_hex));
+
+        c.enableDragSystem(view.bodies.get(6), // END
+                List.of(end_hex, end_sq, end_tri));
+
+        // سیم‌کشی: پورت‌های مثلث/شش‌ضلعی (Circle) و مربع (Rectangle)
+        for (Circle cc : view.circles)      cc.setOnMousePressed(c::onStartWireFromCircle);
+        for (Rectangle r : view.smallRects) r.setOnMousePressed(c::onStartWireFromSmallRect);
+
+        // Start در ابتدا غیرفعال
+        view.startButton.setDisable(true);
+
+        // اعتبارسنجی دقیقِ همان الگوی اتصال تصویر
+        Runnable revalidate = () -> {
+            boolean ok =
+                    // START → VPNs
+                    c.isConnected(stTri, vpnTopTriL) &&
+                            c.isConnected(stSq,  vpnBotSqL)  &&
+
+                            // VPN(top) → SPY(left)
+                            c.isConnected(vpnTopSqR,  spyL_sqL)  &&
+                            c.isConnected(vpnTopTriR, spyL_triL) &&
+
+                            // SPY(left) → SPY(right)
+                            c.isConnected(spyL_sqR,  spyR_sqL)  &&
+                            c.isConnected(spyL_triR, spyR_triL) &&
+
+                            // SPY(right) → DDOS(left)
+                            c.isConnected(spyR_sqR,  ddL_sq)    &&
+                            c.isConnected(spyR_triR, ddL_tri)   &&
+
+                            // VPN(bottom) → DDOS(left)
+                            c.isConnected(vpnBotHexR, ddL_hex)  &&
+
+                            // DDOS(right) → END(left)
+                            c.isConnected(ddR_tri, end_tri)     &&
+                            c.isConnected(ddR_sq,  end_sq)      &&
+                            c.isConnected(ddR_hex, end_hex);
+
+            Platform.runLater(() -> view.startButton.setDisable(!ok));
+        };
+
+        // تایمر سبک (هر 200ms) برای ارزیابی وضعیت سیم‌کشی
+        validateTimer = new Timeline(new KeyFrame(Duration.millis(200), e -> revalidate.run()));
+        validateTimer.setCycleCount(Animation.INDEFINITE);
+        validateTimer.play();
+
+        // فعلاً با زدن Start می‌رویم به مرحله بعد/Win (بعداً فلوها را اضافه می‌کنیم)
+        view.startButton.setOnAction(e -> {
+            if (!view.startButton.isDisable()) onWin.run();
+        });
+    }
+
+    @Override
+    public LevelView getView() { return view; }
+
+    @Override
+    public void dispose() {
+        if (validateTimer != null) {
+            validateTimer.stop();
+            validateTimer = null;
+        }
     }
 }
