@@ -2,6 +2,8 @@ import javafx.animation.*;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.geometry.BoundingBox;
 import javafx.geometry.Point2D;
 import javafx.scene.Group;
@@ -44,6 +46,15 @@ import javafx.beans.binding.Bindings;
 import javafx.geometry.VPos;
 import com.sun.javafx.tk.Toolkit;
 import com.sun.javafx.tk.FontLoader;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import javafx.animation.*;
+import javafx.geometry.Point2D;
+import javafx.scene.Node;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.*;
+import javafx.util.Duration;
+import javafx.animation.Interpolator;
 
 /* =========================================================
  *                      MAIN (App)
@@ -557,6 +568,15 @@ interface ShadowFactory { DropShadow get(); }
     private List<Rectangle> smallRects;
     private Slider timeSlider;
 
+
+
+    // GameController
+    private boolean level5Tuning = false;
+    void setLevel5Tuning(boolean on) { this.level5Tuning = on; }
+
+
+
+
     // داخل GameController
     Node connectedOf(Node n) {
         return repo.otherNode(n); // همون اتصال واقعی که کاربر کشیده
@@ -589,6 +609,210 @@ interface ShadowFactory { DropShadow get(); }
         hud.setPacketLoss(score.getPacketLoss());
         binder.syncFrom(hud);
     }
+
+
+
+    static final class FlowHandle {
+        final Node sprite;           // شکلی که حرکت می‌کند (مثلث/مربع/شش‌ضلعی)
+        final Animation anim;        // انیمیشن حرکت
+        final Node from, to;         // مبدا/مقصد منطقی
+        FlowHandle(Node sprite, Animation anim, Node from, Node to) {
+            this.sprite = sprite; this.anim = anim; this.from = from; this.to = to;
+        }
+        boolean isFinished() { return anim.getStatus() == Animation.Status.STOPPED; }
+    }
+
+    // برای whenAllPortsHaveArrival
+    private Set<Node> awaitPorts = Collections.emptySet();
+    private final Set<Node> reachedPorts = new HashSet<>();
+    private Runnable awaitPortsCallback;
+
+
+    void cleanupFlowSprites() {
+        root.getChildren().removeIf(n -> "FLOW_SPRITE".equals(n.getUserData()));
+    }
+
+    // =================== GameController ===================
+
+    /** اسپریت مناسب بر اساس تَگ جریان می‌سازد و دقیقا در مختصات start (مختصات ریشه‌ی root) قرار می‌دهد. */
+    private Node makeSpriteForTag(String tag, Point2D start) {
+        final Node s;
+        switch (String.valueOf(tag)) {
+            case "M_SQ" -> {                 // مربع زردِ مرکز-محور
+                double a = 8;
+                Rectangle r = new Rectangle(-a / 2, -a / 2, a, a);
+                r.setFill(Color.YELLOW);
+                r.setStroke(Color.BLACK);
+                r.setStrokeWidth(1);
+                s = r;
+            }
+            case "M_HEX" -> {                // شش‌ضلعی حول مبدأ (0,0)؛ بعدا با Layout جابه‌جا می‌شود
+                double R = 6;
+                Polygon h = new Polygon(
+                        R, 0,
+                        R / 2,  Math.sqrt(3) * R / 2,
+                        -R / 2, Math.sqrt(3) * R / 2,
+                        -R, 0,
+                        -R / 2, -Math.sqrt(3) * R / 2,
+                        R / 2,  -Math.sqrt(3) * R / 2
+                );
+                h.setFill(Color.YELLOW);
+                h.setStroke(Color.BLACK);
+                h.setStrokeWidth(1);
+                s = h;
+            }
+            default -> {                     // M_TRI : مثلث زردِ مرکز-محور
+                double size = 10;
+                double h = size * Math.sqrt(3) / 2.0;
+                Polygon p = new Polygon(
+                        0.0,      -h,       // رأس بالا
+                        -size/2.,  h/2.,    // چپ پایین
+                        size/2.,   h/2.     // راست پایین
+                );
+                p.setFill(Color.YELLOW);
+                p.setStroke(Color.BLACK);
+                p.setStrokeWidth(1);
+                s = p;
+            }
+        }
+
+        // جای‌گذاری در مختصات ریشه (root)
+        s.setLayoutX(start.getX());
+        s.setLayoutY(start.getY());
+
+        // برای کارکرد صحیح روی صحنه و پاکسازی مطمئن
+        s.setManaged(false);
+        s.setMouseTransparent(true);
+        s.setUserData("FLOW_SPRITE");  // برای پاکسازی گروهی
+        s.toFront();
+
+        return s;
+    }
+
+    /** از پورت from به پورت to (یا اتصال واقعیِ repo) یک جریان ارسال می‌کند و هندلش را برمی‌گرداند. */
+    // ✅ پیاده‌سازی مشترک با پارامتر مدت و اینترپولیتور
+    private FlowHandle doSend(final Node from,
+                              final Node to,
+                              double seconds,
+                              Interpolator interp) {
+        Node realTo = connectedOf(from);
+        final Node dst = (realTo != null) ? realTo : to;
+
+        Point2D p1 = nodeCenterInScene(from);
+        Point2D p2 = nodeCenterInScene(dst);
+
+        String tag = String.valueOf(from.getUserData()); // "M_TRI" / "M_SQ" / "M_HEX"
+        Node sprite = makeSpriteForTag(tag, p1);
+        root.getChildren().add(sprite);
+
+        TranslateTransition tt = new TranslateTransition(Duration.seconds(seconds), sprite);
+        tt.setToX(p2.getX() - p1.getX());
+        tt.setToY(p2.getY() - p1.getY());
+        if (interp != null) tt.setInterpolator(interp);
+
+        final Node spriteRef = sprite;
+        tt.setOnFinished(ev -> {
+            root.getChildren().remove(spriteRef);
+            if (!awaitPorts.isEmpty() && awaitPorts.contains(dst)) {
+                reachedPorts.add(dst);
+                if (reachedPorts.containsAll(awaitPorts) && awaitPortsCallback != null) {
+                    Runnable cb = awaitPortsCallback; awaitPortsCallback = null;
+                    Platform.runLater(cb);
+                }
+            }
+        });
+
+        tt.play();
+        return new FlowHandle(sprite, tt, from, dst);
+    }
+
+    // ✅ متد public که بقیه‌ی کدها صدا می‌زنند (سازگار با مراحل قبل)
+    // ✅ GameController.send
+    FlowHandle send(final Node from, final Node to) {
+        Node realTo = connectedOf(from);
+        final Node dst = (realTo != null) ? realTo : to;
+
+        Point2D p1 = nodeCenterInScene(from);
+        Point2D p2 = nodeCenterInScene(dst);
+
+        String tag   = String.valueOf(from.getUserData()); // "M_TRI" / "M_SQ" / "M_HEX"
+        Node   sprite= makeSpriteForTag(tag, p1);
+        root.getChildren().add(sprite);
+
+        TranslateTransition tt = new TranslateTransition(Duration.seconds(level5Tuning ?  // ← اگر تیون مرحله ۵ داری
+                switch (tag) {
+                    case "M_SQ"  -> 1.0;    // مربع سریع‌تر
+                    case "M_HEX" -> 2.0;    // شتاب‌دار
+                    default      -> 2.0;    // مثلث
+                } : 2.0), sprite);
+        tt.setToX(p2.getX() - p1.getX());
+        tt.setToY(p2.getY() - p1.getY());
+        if (level5Tuning && "M_HEX".equals(tag)) tt.setInterpolator(Interpolator.EASE_IN);
+
+        // ——— پاکسازی تضمینی
+        final Node spriteRef = sprite;
+        final Runnable cleanup = () -> {
+            if (spriteRef.getParent() != null) root.getChildren().remove(spriteRef);
+        };
+
+        // 1) پایان طبیعی انیمیشن
+        EventHandler<ActionEvent> baseFinish = e -> {
+            cleanup.run();
+            // notify برای awaitPorts (اگر استفاده می‌کنی)
+            if (!awaitPorts.isEmpty() && awaitPorts.contains(dst)) {
+                reachedPorts.add(dst);
+                if (reachedPorts.containsAll(awaitPorts) && awaitPortsCallback != null) {
+                    Runnable cb = awaitPortsCallback; awaitPortsCallback = null;
+                    Platform.runLater(cb);
+                }
+            }
+        };
+        tt.setOnFinished(baseFinish);
+
+        // 2) اگر جایی stop شد (یا rate منفی/بازگشتی تمام شد و به STOP رفت) هم پاکسازی کن
+        tt.statusProperty().addListener((obs, oldSt, newSt) -> {
+            if (newSt == Animation.Status.STOPPED) cleanup.run();
+        });
+
+        tt.play();
+        return new FlowHandle(sprite, tt, from, dst); // (sprite, anim, from, to)
+    }
+
+
+
+
+    void onArrive(FlowHandle f, Runnable r) {
+        EventHandler<ActionEvent> prev = f.anim.getOnFinished(); // پاکسازی + awaitPorts
+        f.anim.setOnFinished(e -> {
+            if (prev != null) prev.handle(e); // اول پاکسازیِ send اجرا شود
+            r.run();                          // بعداً کار خودت
+        });
+    }
+
+    void whenAllArrived(List<FlowHandle> flows, Runnable r) {
+        AtomicInteger remain = new AtomicInteger(flows.size());
+        for (FlowHandle f : flows) {
+            onArrive(f, () -> {
+                if (remain.decrementAndGet() == 0) Platform.runLater(r);
+            });
+        }
+    }
+
+    // قبل از شروع ارسال‌ها صدا بزن: هر زمان همه‌ی این پورت‌ها حداقل یک فلو دریافت کنند، r اجرا می‌شود
+    void whenAllPortsHaveArrival(List<Node> ports, Runnable r) {
+        awaitPorts = new HashSet<>(ports);
+        reachedPorts.clear();
+        awaitPortsCallback = r;
+    }
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2712,6 +2936,10 @@ final class Level5 implements Level {
     private Rectangle end_sq;
     private Circle    end_tri;
 
+
+    private static void tag(Node n, String type) { n.setUserData(type); }
+
+
     /* ---------- Helpers: ساخت کارت/پورت/لیبل ---------- */
 
     private static Rectangle card(double x, double y, double w, double h, Color fill, Color stroke) {
@@ -2828,25 +3056,31 @@ final class Level5 implements Level {
         stTri = hitAt(rightCx(cStart), cY(cStart) - g2S);
         attachTriGlyph(g, stTri, true);
         stSq  = smallSquareAt(rightCx(cStart), cY(cStart) + g2S);
+        tag(stTri, "M_TRI");  tag(stSq, "M_SQ");
 
         vpnTopTriL = hitAt(leftCx(cVpnTop),  cY(cVpnTop));
         attachTriGlyph(g, vpnTopTriL, false);
         vpnTopSqR  = smallSquareAt(rightCx(cVpnTop), cY(cVpnTop) - g2T);
         vpnTopTriR = hitAt(rightCx(cVpnTop), cY(cVpnTop) + g2T);
         attachTriGlyph(g, vpnTopTriR, true);
+        tag(vpnTopTriL, "M_TRI"); tag(vpnTopSqR, "M_SQ"); tag(vpnTopTriR, "M_TRI");
 
         vpnBotSqL  = smallSquareAt(leftCx(cVpnBot), cY(cVpnBot));
         vpnBotHexR = hitAt(rightCx(cVpnBot), cY(cVpnBot));
         attachHexGlyph(g, vpnBotHexR);
+        tag(vpnBotSqL, "M_SQ");   tag(vpnBotHexR, "M_HEX");
 
         // SPY چپ
         spyL_sqL  = smallSquareAt(leftCx(cSpyL),  cY(cSpyL) - g2B);
         spyL_triL = hitAt(leftCx(cSpyL),          cY(cSpyL) + g2B);
         attachTriGlyph(g, spyL_triL, false);
+        tag(spyL_sqL, "M_SQ");    tag(spyL_triL, "M_TRI");
         spyL_sqR  = smallSquareAt(rightCx(cSpyL), cY(cSpyL) - g2B);
         spyL_triR = hitAt(rightCx(cSpyL),         cY(cSpyL) + g2B);
+        tag(spyL_sqR, "M_SQ");    tag(spyL_triR, "M_TRI");
         // بدون گلیف؛ نامرئی و غیرقابل‌کلیک
         spyL_triR.setMouseTransparent(true);
+
 
         // SPY راست
         spyR_sqL  = smallSquareAt(leftCx(cSpyR),  cY(cSpyR) - g2B);
@@ -2856,6 +3090,8 @@ final class Level5 implements Level {
         spyR_sqR  = smallSquareAt(rightCx(cSpyR), cY(cSpyR) - g2B);
         spyR_triR = hitAt(rightCx(cSpyR),         cY(cSpyR) + g2B);
         attachTriGlyph(g, spyR_triR, true);
+        tag(spyR_sqR, "M_SQ");    tag(spyR_triR, "M_TRI");
+        tag(spyR_sqL, "M_SQ");    tag(spyR_triL, "M_TRI"); // خاموش‌ها
 
         ddL_sq  = smallSquareAt(leftCx(cDDOS),  cY(cDDOS) - g3D);
         ddL_tri = hitAt(leftCx(cDDOS),          cY(cDDOS));
@@ -2863,17 +3099,24 @@ final class Level5 implements Level {
         ddL_hex = hitAt(leftCx(cDDOS),          cY(cDDOS) + g3D);
         attachHexGlyph(g, ddL_hex);
 
+
         ddR_tri = hitAt(rightCx(cDDOS),         cY(cDDOS) - g3D);
         attachTriGlyph(g, ddR_tri, true);
         ddR_sq  = smallSquareAt(rightCx(cDDOS), cY(cDDOS));
         ddR_hex = hitAt(rightCx(cDDOS),         cY(cDDOS) + g3D);
         attachHexGlyph(g, ddR_hex);
+        // ANTI VIRUS (DDOS)
+        tag(ddL_sq,  "M_SQ");     tag(ddL_tri, "M_TRI");   tag(ddL_hex, "M_HEX");
+        tag(ddR_sq,  "M_SQ");     tag(ddR_tri, "M_TRI");   tag(ddR_hex, "M_HEX");
+
 
         end_hex = hitAt(leftCx(cEnd),           cY(cEnd) - g3D);
         attachHexGlyph(g, end_hex);
         end_sq  = smallSquareAt(leftCx(cEnd),   cY(cEnd));
         end_tri = hitAt(leftCx(cEnd),           cY(cEnd) + g3D);
         attachTriGlyph(g, end_tri, false);
+        tag(end_sq,  "M_SQ");     tag(end_tri, "M_TRI");   tag(end_hex, "M_HEX");
+
 
         g.getChildren().addAll(
                 cStart, cVpnTop, cVpnBot, cSpyL, cSpyR, cDDOS, cEnd,
@@ -2904,6 +3147,8 @@ final class Level5 implements Level {
     public void bind(GameController c, Slider timeSlider, Runnable onWin) {
         // ارجاع‌ها
         c.bindStageRefs(view.circles, view.smallRects, timeSlider);
+
+        c.setLevel5Tuning(true);
 
         // درگ بدنه‌ها + چسباندن پورت‌ها و Start به هر بدنه
         c.enableDragSystem(view.bodies.get(0), // START
@@ -2969,8 +3214,106 @@ final class Level5 implements Level {
 
         // فعلاً با زدن Start می‌رویم به مرحله بعد/Win (بعداً فلوها را اضافه می‌کنیم)
         view.startButton.setOnAction(e -> {
-            if (!view.startButton.isDisable()) onWin.run();
+            view.startButton.setDisable(true);
+
+            // شمارنده‌ها
+            java.util.concurrent.atomic.AtomicInteger roundsLaunched   = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicInteger triArrivedVpn    = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicInteger sqArrivedVpn     = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicInteger spyInTri         = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicInteger spyInSq          = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicInteger spyPairsTriggered= new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicInteger reachedEnd       = new java.util.concurrent.atomic.AtomicInteger();
+
+            Runnable checkWin = () -> {
+                if (reachedEnd.get() >= 12) { // 4 دور × 3 نوع جریان
+                    onWin.run();
+                }
+            };
+
+            // وقتی دو ورودی SPY(left) به تعداد برابر رسیدند، خروجی‌های SPY(right) را به AV بفرست
+            Runnable maybeFireSpyRight = () -> {
+                int ready = Math.min(spyInTri.get(), spyInSq.get());
+                while (spyPairsTriggered.get() < ready) {
+                    spyPairsTriggered.incrementAndGet();
+
+                    // SPY(right) ▸ AV(left) ▸ AV(right) ▸ END  (مثلث)
+                    GameController.FlowHandle fT = c.send(spyR_triR, ddL_tri);
+                    c.onArrive(fT, () -> {
+                        GameController.FlowHandle toEnd = c.send(ddR_tri, end_tri);
+                        c.onArrive(toEnd, () -> { reachedEnd.incrementAndGet(); checkWin.run(); });
+                    });
+
+                    // SPY(right) ▸ AV(left) ▸ AV(right) ▸ END  (مربع)
+                    GameController.FlowHandle fS = c.send(spyR_sqR, ddL_sq);
+                    c.onArrive(fS, () -> {
+                        GameController.FlowHandle toEnd = c.send(ddR_sq, end_sq);
+                        c.onArrive(toEnd, () -> { reachedEnd.incrementAndGet(); checkWin.run(); });
+                    });
+                }
+            };
+
+            // نگهدارنده‌ی self-referencing برای جلوگیری از ارجاع قبل از اعلان
+            java.util.concurrent.atomic.AtomicReference<Runnable> launchOnePair = new java.util.concurrent.atomic.AtomicReference<>();
+
+            // همواره یک جفت در حال حرکت به سمت VPN نگه می‌داریم (pipeline)
+            // به محض اینکه یک جفت به VPN رسید، جفت بعدی را استارت کن تا سقف 4 جفت.
+            Runnable maybeLaunchNextPair = () -> {
+                int arrivedPairs   = Math.min(triArrivedVpn.get(), sqArrivedVpn.get());
+                int targetLaunched = Math.min(4, arrivedPairs + 1); // ← یک جفت جلوتر راه بیفتد
+                while (roundsLaunched.get() < targetLaunched) {
+                    launchOnePair.get().run();
+                }
+            };
+
+            // ارسال یک «جفت» از START (مثلث به VPN بالا، مربع به VPN پایین)
+            launchOnePair.set(new Runnable() {
+                @Override public void run() {
+                    int r = roundsLaunched.incrementAndGet();
+                    if (r > 4) { roundsLaunched.decrementAndGet(); return; }
+
+                    // START ▸ VPN(top).L  (مثلث)
+                    GameController.FlowHandle fTri0 = c.send(stTri, vpnTopTriL);
+                    c.onArrive(fTri0, () -> {
+                        triArrivedVpn.incrementAndGet();
+
+                        // VPN(top) خروجی‌هایش به SPY(left)
+                        GameController.FlowHandle fTri1 = c.send(vpnTopTriR, spyL_triL);
+                        c.onArrive(fTri1, () -> { spyInTri.incrementAndGet(); maybeFireSpyRight.run(); });
+
+                        GameController.FlowHandle fSq1  = c.send(vpnTopSqR,  spyL_sqL);
+                        c.onArrive(fSq1,  () -> { spyInSq.incrementAndGet();  maybeFireSpyRight.run(); });
+
+                        maybeLaunchNextPair.run();
+                    });
+
+                    // START ▸ VPN(bottom).L  (مربع)
+                    GameController.FlowHandle fSq0 = c.send(stSq, vpnBotSqL);
+                    c.onArrive(fSq0, () -> {
+                        sqArrivedVpn.incrementAndGet();
+
+                        // VPN(bottom) هگزا را مستقیم به AV(left) می‌فرستد
+                        GameController.FlowHandle fHex = c.send(vpnBotHexR, ddL_hex);
+                        c.onArrive(fHex, () -> {
+                            // در AV توقف نداریم: مستقیم به END
+                            GameController.FlowHandle toEnd = c.send(ddR_hex, end_hex);
+                            c.onArrive(toEnd, () -> { reachedEnd.incrementAndGet(); checkWin.run(); });
+                        });
+
+                        maybeLaunchNextPair.run();
+                    });
+                }
+            });
+
+            // شروع اولین جفت
+            launchOnePair.get().run();
         });
+
+
+
+
+
+
     }
 
     @Override
