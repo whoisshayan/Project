@@ -24,6 +24,12 @@ import javafx.scene.transform.Translate;
 import javafx.stage.Stage;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ButtonBar;
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
+import javafx.util.Duration;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
@@ -40,12 +46,11 @@ import javafx.scene.shape.Polygon;
 import javafx.geometry.Bounds;
 import javafx.animation.PathTransition;
 import javafx.animation.ParallelTransition;
-import com.sun.javafx.tk.Toolkit;
+// removed com.sun.javafx imports to avoid build-time dependency
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.Bindings;
 import javafx.geometry.VPos;
-import com.sun.javafx.tk.Toolkit;
-import com.sun.javafx.tk.FontLoader;
+// removed com.sun.javafx imports to avoid build-time dependency
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import javafx.animation.*;
@@ -88,22 +93,22 @@ public class Main extends Application {
     @Override
     public void start(Stage primaryStage) {
         // ----------------------- MENU -----------------------
-        File bgFile = new File("D:\\university\\AP\\project\\Menu background.png");
-        Image bgImage = new Image(bgFile.toURI().toString());
+        File bgFile = new File("Menu background.png");
+        Image bgImage = new Image(bgFile.exists() ? bgFile.toURI().toString() : new File("Menu background.png").toURI().toString());
         ImageView bgView = new ImageView(bgImage);
         bgView.setFitWidth(700);
         bgView.setFitHeight(600);
         bgView.setPreserveRatio(false);
 
-        File bgFile2 = new File("D:/university/AP/project/Setting background.png");
-        Image bgImage2 = new Image(bgFile2.toURI().toString());
+        File bgFile2 = new File("Setting background.png");
+        Image bgImage2 = new Image(bgFile2.exists() ? bgFile2.toURI().toString() : new File("Setting background.png").toURI().toString());
         ImageView bgView2 = new ImageView(bgImage2);
         bgView2.setFitWidth(700);
         bgView2.setFitHeight(600);
         bgView2.setPreserveRatio(false);
 
-        File bgFile3 = new File("D:/university/AP/project/level background.png");
-        Image bgImage3 = new Image(bgFile3.toURI().toString());
+        File bgFile3 = new File("level background.png");
+        Image bgImage3 = new Image(bgFile3.exists() ? bgFile3.toURI().toString() : new File("level background.png").toURI().toString());
         ImageView bgView3 = new ImageView(bgImage3);
         bgView3.setFitWidth(700);
         bgView3.setFitHeight(600);
@@ -116,15 +121,17 @@ public class Main extends Application {
         line1.setFill(Color.WHITE);
         line2.setFill(Color.WHITE);
 
+        // Music (optional) — skip if file not found
+        final MediaPlayer[] mediaPlayer = new MediaPlayer[1];
         File file = new File("C:/Users/shaya/Desktop/song/202. Bagatelle in A minor, WoO 59, Fur Elise.mp3");
-        if (!file.exists()) {
-            System.out.println("Music File Path Error");
-            return;
-        }
+        if (file.exists()) {
         String url = file.toURI().toString();
         Media media = new Media(url);
-        MediaPlayer mediaPlayer = new MediaPlayer(media);
-        mediaPlayer.play();
+            mediaPlayer[0] = new MediaPlayer(media);
+            mediaPlayer[0].play();
+        } else {
+            System.out.println("Music File Path Error (skipping background music)");
+        }
 
         sharedShadow = new DropShadow();
         sharedShadow.setRadius(20);
@@ -132,21 +139,23 @@ public class Main extends Application {
         sharedShadow.setOffsetY(0);
         sharedShadow.setColor(Color.WHITE);
 
-        Button startButton   = styledButton("Start",   290, 205, 120, 50, "#4CAF50");
-        Button levelButton   = styledButton("Levels",  290, 285, 120, 50, "purple");
-        Button settingButton = styledButton("Settings",290, 365, 120, 50, "red");
-        Button exitButton    = styledButton("Exit",    290, 445, 120, 50, "orange");
+        Button startButton   = styledButton("Continue", 290, 180, 120, 45, "#4CAF50");
+        Button newGameButton = styledButton("Start New", 290, 235, 120, 45, "#2196F3");
+        Button levelButton   = styledButton("Levels",  290, 290, 120, 45, "purple");
+        Button settingButton = styledButton("Settings",290, 345, 120, 45, "red");
+        Button exitButton    = styledButton("Exit",    290, 400, 120, 45, "orange");
         exitButton.setOnAction(e -> Platform.exit());
 
         Pane menuRoot = new Pane();
         menuRoot.getChildren().add(bgView);
-        menuRoot.getChildren().addAll(startButton, levelButton, settingButton, exitButton, line1, line2);
+        menuRoot.getChildren().addAll(startButton, newGameButton, levelButton, settingButton, exitButton, line1, line2);
         Scene menuScene = new Scene(menuRoot, 700, 600);
 
         // Level scene (selector)
         Button firstLevelButton   = styledButton("1",   82.5, 193, 64, 55, "red");
         Button secondLevelButton  = styledButton("2",  316.5, 193, 64, 55, "red");
         Button backButtonFromLevel= styledButton("Back", 520, 530, 120, 50, "red");
+        Button clearSavesButton   = styledButton("Clear Saves", 50, 530, 120, 50, "#FF5722");
         Button thirdLevelButton   = styledButton("3",  316.5, 193, 64, 55, "red");
         Button fourthLevelButton  = styledButton("4",  416.5, 193, 64, 55, "red");
         Button fifthLevelButton   = styledButton("5",  516.5, 193, 64, 55, "red"); // ✅ دکمه مرحله 5
@@ -156,11 +165,44 @@ public class Main extends Application {
         levelRootScene.getChildren().addAll(
                 firstLevelButton, secondLevelButton, thirdLevelButton,
                 fourthLevelButton, fifthLevelButton,                  // ✅ اضافه شد
-                backButtonFromLevel
+                backButtonFromLevel, clearSavesButton
         );
         Scene levelScene = new Scene(levelRootScene, 700, 600);
         backButtonFromLevel.setOnAction(e -> primaryStage.setScene(menuScene));
         levelButton.setOnAction(e -> primaryStage.setScene(levelScene));
+        
+        // Clear saves button functionality
+        clearSavesButton.setOnAction(e -> {
+            Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmAlert.setTitle("Clear All Saves");
+            confirmAlert.setHeaderText("Clear All Save Data?");
+            confirmAlert.setContentText("This will permanently delete all your saved progress.\nThis action cannot be undone!\n\nAre you sure you want to continue?");
+            
+            ButtonType yesButton = new ButtonType("Yes, Delete All");
+            ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+            confirmAlert.getButtonTypes().setAll(yesButton, cancelButton);
+            
+            Optional<ButtonType> result = confirmAlert.showAndWait();
+            if (result.isPresent() && result.get() == yesButton) {
+                // Clear all saves and autosaves
+                String profileId = new PlayerManager().getActiveProfileId();
+                SaveManager tempSaveManager = new SaveManager();
+                AutosaveManager tempAutosaveManager = new AutosaveManager(tempSaveManager);
+                
+                List<String> savedLevels = tempSaveManager.listSavedLevels(profileId);
+                for (String levelId : savedLevels) {
+                    tempSaveManager.deleteSave(profileId, levelId);
+                }
+                tempAutosaveManager.deleteAllAutosaves();
+                
+                // Show success message
+                Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                successAlert.setTitle("Saves Cleared");
+                successAlert.setHeaderText("Success!");
+                successAlert.setContentText("All save data has been cleared successfully.");
+                successAlert.showAndWait();
+            }
+        });
 
 
         // Settings scene
@@ -168,20 +210,23 @@ public class Main extends Application {
         backButton.setOnAction(e -> primaryStage.setScene(menuScene));
         Button muteButton = styledButton("Mute", 290, 365, 120, 50, "red");
         muteButton.setOnAction(e -> {
-            if (mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
-                mediaPlayer.pause();
+            if (mediaPlayer[0] != null) {
+                if (mediaPlayer[0].getStatus() == MediaPlayer.Status.PLAYING) {
+                    mediaPlayer[0].pause();
                 muteButton.setText("Unmute");
             } else {
-                mediaPlayer.play();
+                    mediaPlayer[0].play();
                 muteButton.setText("Mute");
+                }
             }
         });
         Slider volumeSlider = new Slider(0, 1, 0.5);
         volumeSlider.setLayoutX(123);
         volumeSlider.setLayoutY(290);
         volumeSlider.setPrefWidth(470);
-        volumeSlider.valueProperty().addListener((obs, ov, nv) -> mediaPlayer.setVolume(nv.doubleValue()));
-        mediaPlayer.setVolume(volumeSlider.getValue());
+        volumeSlider.valueProperty().addListener((obs, ov, nv) -> { if (mediaPlayer[0] != null) mediaPlayer[0].setVolume(nv.doubleValue()); });
+        if (mediaPlayer[0] != null) mediaPlayer[0].setVolume(volumeSlider.getValue());
+        if (mediaPlayer[0] == null) { muteButton.setDisable(true); volumeSlider.setDisable(true); }
         volumeSlider.setShowTickLabels(true);
         volumeSlider.setMajorTickUnit(0.25);
         volumeSlider.setBlockIncrement(0.25);
@@ -252,8 +297,90 @@ public class Main extends Application {
 
 
 
-        // منو -> شروع
-        startButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(1); });
+        // Determine last played level for active player
+        PlayerManager players = new PlayerManager();
+        String bootProfile = players.getActiveProfileId();
+        SaveManager bootSave = new SaveManager();
+        AutosaveManager bootAutosave = new AutosaveManager(bootSave);
+        final int lastLevel;
+        int last = 1;
+        
+        // Check both normal saves and autosaves to find the highest level
+        for (int i = 9; i >= 1; i--) {
+            Optional<SaveData> normalSave = bootSave.loadGame(bootProfile, "level-" + i);
+            Optional<SaveData> autoSave = bootAutosave.checkForAutosave("level-" + i);
+            
+            // If we have either type of save for this level, this is our last level
+            if ((normalSave.isPresent() && normalSave.get().currentLevelNumber == i) ||
+                (autoSave.isPresent() && autoSave.get().currentLevelNumber == i)) {
+                last = i; 
+                break; 
+            }
+        }
+        lastLevel = last;
+
+        // منو -> شروع (Continue from last save)
+        startButton.setOnAction(e -> { 
+            // Check if we have any saves (normal or auto) to continue from
+            boolean hasSaves = false;
+            SaveManager checkSave = new SaveManager();
+            String profileId = players.getActiveProfileId();
+            
+            // Check for normal saves
+            List<String> savedLevels = checkSave.listSavedLevels(profileId);
+            if (!savedLevels.isEmpty()) {
+                hasSaves = true;
+            } else {
+                // Check for autosaves
+                AutosaveManager checkAutosave = new AutosaveManager(checkSave);
+                for (int i = 1; i <= 9; i++) {
+                    if (checkAutosave.checkForAutosave("level-" + i).isPresent()) {
+                        hasSaves = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (hasSaves) {
+                primaryStage.setScene(mainScene); 
+                lm.goTo(lastLevel); 
+            } else {
+                // No saves found, show info and ask to start new
+                Alert infoAlert = new Alert(Alert.AlertType.INFORMATION);
+                infoAlert.setTitle("No Saved Game");
+                infoAlert.setHeaderText("No previous progress found");
+                infoAlert.setContentText("You don't have any saved progress yet.\nWould you like to start a new game?");
+                
+                ButtonType startNewButton = new ButtonType("Start New Game");
+                ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+                infoAlert.getButtonTypes().setAll(startNewButton, cancelButton);
+                
+                Optional<ButtonType> result = infoAlert.showAndWait();
+                if (result.isPresent() && result.get() == startNewButton) {
+                    primaryStage.setScene(mainScene); 
+                    lm.startNewGame(); 
+                }
+            }
+        });
+        
+        // منو -> شروع جدید (Start New Game - clear saves)
+        newGameButton.setOnAction(e -> { 
+            // Show confirmation dialog for starting new game
+            Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmAlert.setTitle("Start New Game");
+            confirmAlert.setHeaderText("Start New Game?");
+            confirmAlert.setContentText("This will delete all your current progress and start from Level 1.\nAre you sure you want to continue?");
+            
+            ButtonType yesButton = new ButtonType("Yes, Start New");
+            ButtonType cancelButton = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+            confirmAlert.getButtonTypes().setAll(yesButton, cancelButton);
+            
+            Optional<ButtonType> result = confirmAlert.showAndWait();
+            if (result.isPresent() && result.get() == yesButton) {
+                primaryStage.setScene(mainScene); 
+                lm.startNewGame(); 
+            }
+        });
         firstLevelButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(1); });
         secondLevelButton.setOnAction(e -> { primaryStage.setScene(mainScene); lm.goTo(2); });
         thirdLevelButton.setOnAction(e  -> { primaryStage.setScene(mainScene); lm.goTo(3); });
@@ -266,6 +393,14 @@ public class Main extends Application {
         primaryStage.setTitle("BluePrint Hell");
         primaryStage.setScene(menuScene);
         primaryStage.setResizable(false);
+
+        // Persist state on window close
+        primaryStage.setOnCloseRequest(e -> {
+            try {
+                lm.forceSaveIfPlaying();
+            } catch (Throwable ignored) {}
+        });
+
         primaryStage.show();
     }
 
@@ -417,6 +552,33 @@ final class GameState {
 
     boolean suppressImpact = false;
     boolean suppressPacketLoss = false;
+    
+    // Additional state for save/load
+    private boolean paused = false;
+    private boolean gameOver = false;
+    private boolean gameStarted = false;
+    private double currentTime = 0.0;
+    private int coins = 0;
+    // Track last visited level number
+    private int currentLevelNumber = 1;
+    
+    // Getters and setters for save/load
+    public boolean isPaused() { return paused; }
+    public void setPaused(boolean paused) { this.paused = paused; }
+    
+    public boolean isGameOver() { return gameOver; }
+    public void setGameOver(boolean gameOver) { this.gameOver = gameOver; }
+    
+    public boolean isGameStarted() { return gameStarted; }
+    public void setGameStarted(boolean gameStarted) { this.gameStarted = gameStarted; }
+    
+    public double getCurrentTime() { return currentTime; }
+    public void setCurrentTime(double time) { this.currentTime = time; }
+    
+    public int getCoins() { return coins; }
+    public void setCoins(int coins) { this.coins = coins; }
+    public int getCurrentLevelNumber() { return currentLevelNumber; }
+    public void setCurrentLevelNumber(int n) { this.currentLevelNumber = n; }
 
     int validSteam = 0;
 
@@ -442,6 +604,7 @@ final class WireBudgetService {
     void refund(double len) { if (len > 0) remaining += len; }
     int remainingInt() { return (int)Math.round(remaining); }
     double remaining() { return remaining; }
+    void setRemaining(double remaining) { this.remaining = Math.max(0, remaining); }
     void resetTo(double v){ remaining = Math.max(0,v); }
 }
 
@@ -454,6 +617,7 @@ final class ScoreService {
     void resetPacketLoss() { packetLoss = 0; }
     int getCoins() { return coins; }
     int getPacketLoss() { return packetLoss; }
+    void setPacketLoss(int p) { packetLoss = p; }
 }
 
 final class ConnectionRepo {
@@ -495,6 +659,28 @@ final class ConnectionRepo {
     void clear(Pane root){
         for (Line l : new HashSet<>(connectionMap.values())) root.getChildren().remove(l);
         connectionMap.clear();
+    }
+
+    java.util.Set<Line> allLines() { return new java.util.HashSet<>(connectionMap.values()); }
+    
+    // Get all connections for saving
+    java.util.Set<Map.Entry<Node, Node>> getAllConnections() {
+        Map<Node, Node> connections = new HashMap<>();
+        Map<Line, List<Node>> lineToNodes = new HashMap<>();
+        
+        // Group nodes by their line
+        for (Map.Entry<Node, Line> entry : connectionMap.entrySet()) {
+            lineToNodes.computeIfAbsent(entry.getValue(), k -> new ArrayList<>()).add(entry.getKey());
+        }
+        
+        // Create node pairs from lines
+        for (List<Node> nodes : lineToNodes.values()) {
+            if (nodes.size() == 2) {
+                connections.put(nodes.get(0), nodes.get(1));
+            }
+        }
+        
+        return connections.entrySet();
     }
 }
 
@@ -563,10 +749,23 @@ interface ShadowFactory { DropShadow get(); }
     private final ExplosionPlayerFactory explosionFactory;
     private final ShadowFactory shadowFactory;
 
+    // --- Curved wire overlays (Line -> overlay with up to 3 bends)
+    private final java.util.Map<Line, WireView> wireViews = new java.util.HashMap<>();
+    // Bodies for collision validation and start buttons to guard run
+    private final java.util.Set<Rectangle> bodies = new java.util.HashSet<>();
+    private final java.util.List<Button> startButtons = new java.util.ArrayList<>();
+    // Track active flows for save/resume
+    private final java.util.List<FlowHandle> activeFlows = new java.util.ArrayList<>();
     // refs برای مرحله‌ی فعال
     private List<Circle> circles;
     private List<Rectangle> smallRects;
     private Slider timeSlider;
+    
+    // Getters for save/load
+    public List<Circle> getCircles() { return circles; }
+    public List<Rectangle> getSmallRects() { return smallRects; }
+    public Set<Rectangle> getBodies() { return bodies; }
+    public java.util.List<FlowHandle> getActiveFlows() { return new java.util.ArrayList<>(activeFlows); }
 
 
 
@@ -608,6 +807,15 @@ interface ShadowFactory { DropShadow get(); }
         score.addPacketLoss(amount);
         hud.setPacketLoss(score.getPacketLoss());
         binder.syncFrom(hud);
+    }
+    
+    // Create wire view for loaded connections
+    public void createWireView(Line line) {
+        if (line != null && !wireViews.containsKey(line)) {
+            WireView wv = new WireView(line);
+            wireViews.put(line, wv);
+            wv.attach();
+        }
     }
 
 
@@ -676,9 +884,10 @@ interface ShadowFactory { DropShadow get(); }
             }
         }
 
-        // جای‌گذاری در مختصات ریشه (root)
-        s.setLayoutX(start.getX());
-        s.setLayoutY(start.getY());
+        // برای PathTransition با مختصات مطلق مسیر، نود را در مبدأ (0,0) می‌گذاریم
+        // و مسیر، ترجمه را به مختصات مطلق اعمال می‌کند
+        s.setLayoutX(0);
+        s.setLayoutY(0);
 
         // برای کارکرد صحیح روی صحنه و پاکسازی مطمئن
         s.setManaged(false);
@@ -705,14 +914,14 @@ interface ShadowFactory { DropShadow get(); }
         Node sprite = makeSpriteForTag(tag, p1);
         root.getChildren().add(sprite);
 
-        TranslateTransition tt = new TranslateTransition(Duration.seconds(seconds), sprite);
-        tt.setToX(p2.getX() - p1.getX());
-        tt.setToY(p2.getY() - p1.getY());
-        if (interp != null) tt.setInterpolator(interp);
+        Animation anim = createFlowAnimation(from, dst, sprite, seconds, interp);
 
         final Node spriteRef = sprite;
-        tt.setOnFinished(ev -> {
+        final FlowHandle handle = new FlowHandle(sprite, anim, from, dst);
+        activeFlows.add(handle);
+        anim.setOnFinished(ev -> {
             root.getChildren().remove(spriteRef);
+            activeFlows.remove(handle);
             if (!awaitPorts.isEmpty() && awaitPorts.contains(dst)) {
                 reachedPorts.add(dst);
                 if (reachedPorts.containsAll(awaitPorts) && awaitPortsCallback != null) {
@@ -722,8 +931,8 @@ interface ShadowFactory { DropShadow get(); }
             }
         });
 
-        tt.play();
-        return new FlowHandle(sprite, tt, from, dst);
+        anim.play();
+        return handle;
     }
 
     // ✅ متد public که بقیه‌ی کدها صدا می‌زنند (سازگار با مراحل قبل)
@@ -739,15 +948,19 @@ interface ShadowFactory { DropShadow get(); }
         Node   sprite= makeSpriteForTag(tag, p1);
         root.getChildren().add(sprite);
 
-        TranslateTransition tt = new TranslateTransition(Duration.seconds(level5Tuning ?  // ← اگر تیون مرحله ۵ داری
+        Interpolator interp = (level5Tuning && "M_HEX".equals(tag)) ? Interpolator.EASE_IN : null;
+        Animation anim = createFlowAnimation(
+                from,
+                dst,
+                sprite,
+                (level5Tuning ? // ← اگر تیون مرحله ۵ داری
                 switch (tag) {
                     case "M_SQ"  -> 1.0;    // مربع سریع‌تر
                     case "M_HEX" -> 2.0;    // شتاب‌دار
                     default      -> 2.0;    // مثلث
-                } : 2.0), sprite);
-        tt.setToX(p2.getX() - p1.getX());
-        tt.setToY(p2.getY() - p1.getY());
-        if (level5Tuning && "M_HEX".equals(tag)) tt.setInterpolator(Interpolator.EASE_IN);
+                        }
+                        : 2.0),
+                interp);
 
         // ——— پاکسازی تضمینی
         final Node spriteRef = sprite;
@@ -767,15 +980,365 @@ interface ShadowFactory { DropShadow get(); }
                 }
             }
         };
-        tt.setOnFinished(baseFinish);
+        anim.setOnFinished(baseFinish);
 
         // 2) اگر جایی stop شد (یا rate منفی/بازگشتی تمام شد و به STOP رفت) هم پاکسازی کن
-        tt.statusProperty().addListener((obs, oldSt, newSt) -> {
+        anim.statusProperty().addListener((obs, oldSt, newSt) -> {
             if (newSt == Animation.Status.STOPPED) cleanup.run();
         });
 
-        tt.play();
-        return new FlowHandle(sprite, tt, from, dst); // (sprite, anim, from, to)
+        final FlowHandle handle = new FlowHandle(sprite, anim, from, dst); // (sprite, anim, from, to)
+        activeFlows.add(handle);
+        anim.statusProperty().addListener((obs2, o2, n2) -> { if (n2 == Animation.Status.STOPPED) { activeFlows.remove(handle); }});
+        anim.play();
+        return handle;
+    }
+
+    private Animation createFlowAnimation(Node from, Node dst, Node sprite, double seconds, Interpolator interp) {
+        // If there is a curved overlay with bends, follow its path; otherwise straight translate
+        Line line = repo.get(from);
+        WireView wv = (line != null) ? wireViews.get(line) : null;
+        if (wv != null) {
+            // Build path in absolute (scene/root) coordinates; sprite sits at (0,0)
+            Path path = wv.buildPathForAnimation();
+            // ensure path is in scene via overlay, so coordinates match sprite's parent (root)
+            if (!root.getChildren().contains(path.getParent())) {
+                // already managed by WireView.attach()
+            }
+            PathTransition pt = new PathTransition(Duration.seconds(seconds), path, sprite);
+            if (interp != null) pt.setInterpolator(interp);
+            pt.setOrientation(PathTransition.OrientationType.NONE);
+            return pt;
+        }
+        TranslateTransition tt = new TranslateTransition(Duration.seconds(seconds), sprite);
+        Point2D p1 = nodeCenterInScene(from);
+        Point2D p2 = nodeCenterInScene(dst);
+        tt.setToX(p2.getX() - p1.getX());
+        tt.setToY(p2.getY() - p1.getY());
+        if (interp != null) tt.setInterpolator(interp);
+        return tt;
+    }
+
+    // =================== Curved Wire Overlay (per Line) ===================
+    private final class WireView {
+        private final Line baseLine;
+        private final Group overlay = new Group();
+        private final java.util.List<Bend> bends = new java.util.ArrayList<>();
+        private final java.util.List<QuadCurve> curves = new java.util.ArrayList<>();
+        private double accountedLength;
+        private double bendRadius = 150.0; // default, will be scaled per-wire length
+
+        WireView(Line baseLine) {
+            this.baseLine = baseLine;
+            this.accountedLength = lengthOfLine(baseLine);
+            overlay.setMouseTransparent(false);
+            overlay.setUserData("WIRE_OVERLAY");
+            // hide the underlying straight wire for better visuals
+            baseLine.setStroke(Color.TRANSPARENT);
+            baseLine.setMouseTransparent(true);
+            overlay.setOnMouseClicked(ev -> {
+                if (ev.isShiftDown()) {
+                    tryAddBendAt(new Point2D(ev.getSceneX(), ev.getSceneY()));
+                    ev.consume();
+                }
+            });
+            // scale bend radius based on wire length for better UX
+            double straightLen = accountedLength;
+            bendRadius = Math.max(80.0, Math.min(300.0, straightLen * 0.5));
+            rebuild();
+        }
+
+        void attach() { root.getChildren().add(overlay); overlay.toFront(); }
+        void detach() { root.getChildren().remove(overlay); }
+
+        double getCurrentLength() { return computeCurvedLength(); }
+
+        boolean hasBends() { return !bends.isEmpty(); }
+
+        Path buildPathForAnimation() {
+            Path path = new Path();
+            java.util.List<QSeg> segs = buildSegments();
+            if (segs.isEmpty()) return path;
+            QSeg first = segs.get(0);
+            path.getElements().add(new MoveTo(first.s.getX(), first.s.getY()));
+            for (QSeg sg : segs) {
+                path.getElements().add(new QuadCurveTo(sg.c.getX(), sg.c.getY(), sg.e.getX(), sg.e.getY()));
+            }
+            // Put path directly on root so its coordinates are absolute
+            path.setManaged(false);
+            path.setMouseTransparent(true);
+            path.setVisible(false);
+            root.getChildren().add(path);
+            return path;
+        }
+
+        Path buildPathForAnimationNormalized(Point2D layoutStart) {
+            Path path = new Path();
+            java.util.List<QSeg> segs = buildSegments();
+            if (segs.isEmpty()) return path;
+            QSeg first = segs.get(0);
+            double ox = layoutStart.getX() - first.s.getX();
+            double oy = layoutStart.getY() - first.s.getY();
+            path.getElements().add(new MoveTo(first.s.getX() + ox, first.s.getY() + oy));
+            for (QSeg sg : segs) {
+                path.getElements().add(new QuadCurveTo(sg.c.getX() + ox, sg.c.getY() + oy, sg.e.getX() + ox, sg.e.getY() + oy));
+            }
+            path.setManaged(false);
+            path.setMouseTransparent(true);
+            path.setVisible(false);
+            root.getChildren().add(path);
+            return path;
+        }
+
+        void rebuild() {
+            overlay.getChildren().clear();
+            curves.clear();
+
+            java.util.List<QSeg> segs = buildSegments();
+            for (QSeg sg : segs) {
+                QuadCurve q = new QuadCurve();
+                q.setStartX(sg.s.getX()); q.setStartY(sg.s.getY());
+                q.setEndX(sg.e.getX());   q.setEndY(sg.e.getY());
+                q.setControlX(sg.c.getX()); q.setControlY(sg.c.getY());
+                q.setStrokeWidth(3); q.setFill(null);
+                q.setStroke(isCurveIntersectingBodies() ? Color.RED : Color.LIME);
+                overlay.getChildren().add(q);
+                curves.add(q);
+            }
+
+            for (int i = 0; i < bends.size(); i++) {
+                Bend bp = bends.get(i);
+                Circle hitArea = new Circle(bp.position.getX(), bp.position.getY(), 18, Color.color(1,1,0,0.15));
+                hitArea.setStroke(Color.YELLOW);
+                hitArea.setStrokeWidth(1.0);
+                hitArea.setMouseTransparent(false);
+                Circle indicator = new Circle(bp.position.getX(), bp.position.getY(), 6, Color.YELLOW);
+                indicator.setStroke(Color.BLACK); indicator.setStrokeWidth(1.5);
+                setupBendPointDragging(indicator, hitArea, i);
+                overlay.getChildren().addAll(hitArea, indicator);
+                bp.hitArea = hitArea;
+                bp.indicator = indicator;
+            }
+
+            reconcileBudgetAfterChange();
+            updateRunEligibility();
+        }
+
+        private void updateCurvesOnly() {
+            java.util.List<QSeg> segs = buildSegments();
+            while (curves.size() < segs.size()) curves.add(new QuadCurve());
+            for (int i = 0; i < segs.size(); i++) {
+                QSeg sg = segs.get(i);
+                QuadCurve q = curves.get(i);
+                q.setStartX(sg.s.getX()); q.setStartY(sg.s.getY());
+                q.setEndX(sg.e.getX());   q.setEndY(sg.e.getY());
+                q.setControlX(sg.c.getX()); q.setControlY(sg.c.getY());
+                if (!overlay.getChildren().contains(q)) overlay.getChildren().add(i, q);
+            }
+            // recolor based on intersection
+            boolean bad = isCurveIntersectingBodies();
+            for (QuadCurve q : curves) q.setStroke(bad ? Color.RED : Color.LIME);
+        }
+
+        boolean isCurveIntersectingBodies() {
+            // sample quadratic segments; ignore regions near endpoints to allow connectors inside bodies
+            java.util.List<QSeg> segs = buildSegments();
+            final int perSeg = 28;
+            final double eps = 0.2; // relax to 20% at both ends to avoid false positives
+            for (int i = 0; i < segs.size(); i++) {
+                QSeg sg = segs.get(i);
+                for (int s = 0; s <= perSeg; s++) {
+                    double t = (double) s / perSeg;
+                    if ((i == 0 && t < eps) || (i == segs.size() - 1 && t > 1.0 - eps)) continue;
+                    Point2D p = quadPoint(sg.s, sg.c, sg.e, t);
+                    for (Rectangle r : bodies) {
+                        Bounds rb = r.localToScene(r.getBoundsInLocal());
+                        if (p.getX() >= rb.getMinX() && p.getX() <= rb.getMaxX() && p.getY() >= rb.getMinY() && p.getY() <= rb.getMaxY()) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        private java.util.List<Point2D> samplePoints(int perSeg) {
+            java.util.List<QSeg> segs = buildSegments();
+            java.util.List<Point2D> out = new java.util.ArrayList<>();
+            for (QSeg sg : segs) {
+                for (int s = 0; s <= perSeg; s++) {
+                    double t = (double)s / perSeg;
+                    out.add(quadPoint(sg.s, sg.c, sg.e, t));
+                }
+            }
+            return out;
+        }
+
+        private void reconcileBudgetAfterChange() {
+            double curved = computeCurvedLength();
+            double delta = curved - accountedLength;
+            if (Math.abs(delta) < 1e-6) return;
+            if (delta > 0) {
+                if (wireBudget.consume(delta)) {
+                    accountedLength = curved;
+                    hud.setRemainingWire(wireBudget.remainingInt());
+                    binder.syncFrom(hud);
+                } else {
+                    // if cannot afford more wire, slightly revert current bends towards original
+                    for (Bend b : bends) {
+                        b.position = b.position.interpolate(b.original, 0.5);
+                    }
+                    rebuild();
+                }
+            } else {
+                wireBudget.refund(-delta);
+                accountedLength = curved;
+                hud.setRemainingWire(wireBudget.remainingInt());
+                binder.syncFrom(hud);
+            }
+        }
+
+        private java.util.List<QSeg> buildSegments() {
+            java.util.List<QSeg> segs = new java.util.ArrayList<>();
+            Point2D start = new Point2D(baseLine.getStartX(), baseLine.getStartY());
+            Point2D end   = new Point2D(baseLine.getEndX(), baseLine.getEndY());
+            if (bends.isEmpty()) {
+                // single straight fallback as quadratic with midpoint control
+                Point2D mid = new Point2D((start.getX()+end.getX())*0.5,(start.getY()+end.getY())*0.5);
+                segs.add(new QSeg(start, mid, end));
+                return segs;
+            }
+            if (bends.size() == 1) {
+                segs.add(new QSeg(start, bends.get(0).position, end));
+                return segs;
+            }
+            // multiple bends: piecewise quadratics with control at the bend and endpoints at midpoints between adjacent bends
+            for (int i = 0; i < bends.size(); i++) {
+                Point2D ctrl = bends.get(i).position;
+                Point2D segStart = (i == 0) ? start : midpoint(bends.get(i-1).position, bends.get(i).position);
+                Point2D segEnd   = (i == bends.size()-1) ? end : midpoint(bends.get(i).position, bends.get(i+1).position);
+                segs.add(new QSeg(segStart, ctrl, segEnd));
+            }
+            return segs;
+        }
+
+        private Point2D midpoint(Point2D a, Point2D b) { return new Point2D((a.getX()+b.getX())*0.5,(a.getY()+b.getY())*0.5); }
+
+        private final class QSeg { final Point2D s,c,e; QSeg(Point2D s, Point2D c, Point2D e){ this.s=s; this.c=c; this.e=e; } }
+
+        private double computeCurvedLength() {
+            java.util.List<QSeg> segs = buildSegments();
+            double total = 0.0;
+            for (QSeg sg : segs) total += approximateQuadLength(sg.s, sg.c, sg.e, 80);
+            return total;
+        }
+
+        private double approximateQuadLength(Point2D s, Point2D c, Point2D e, int samples) {
+            if (samples < 2) samples = 2;
+            double len = 0.0;
+            Point2D prev = s;
+            for (int i = 1; i <= samples; i++) {
+                double t = (double)i / samples;
+                Point2D p = quadPoint(s, c, e, t);
+                len += prev.distance(p);
+                prev = p;
+            }
+            return len;
+        }
+
+        private Point2D quadPoint(Point2D s, Point2D c, Point2D e, double t) {
+            double u = 1.0 - t;
+            double x = u*u*s.getX() + 2*u*t*c.getX() + t*t*e.getX();
+            double y = u*u*s.getY() + 2*u*t*c.getY() + t*t*e.getY();
+            return new Point2D(x, y);
+        }
+
+        private void setupBendPointDragging(Circle indicator, Circle hitArea, int bendIndex) {
+            final boolean[] dragging = {false};
+            Runnable onPressed = () -> dragging[0] = true;
+            indicator.setOnMousePressed(e -> { e.consume(); onPressed.run(); });
+            hitArea.setOnMousePressed(e -> { e.consume(); onPressed.run(); });
+
+            javafx.event.EventHandler<javafx.scene.input.MouseEvent> onDragged = e -> {
+                e.consume(); if (!dragging[0]) return;
+                Point2D scenePos = new Point2D(e.getSceneX(), e.getSceneY());
+                // overlay is attached to root; scene coords align; convert if needed
+                Point2D localPos = scenePos; // root.sceneToLocal(scenePos) would be same base
+                Bend bendPoint = bends.get(bendIndex);
+
+                Point2D wireStart = new Point2D(baseLine.getStartX(), baseLine.getStartY());
+                Point2D wireEnd   = new Point2D(baseLine.getEndX(), baseLine.getEndY());
+                double wireLen = wireStart.distance(wireEnd);
+                double maxOffset = Math.min(300.0, Math.max(bendRadius, wireLen * 0.6));
+
+                double vx = wireEnd.getX() - wireStart.getX();
+                double vy = wireEnd.getY() - wireStart.getY();
+                double denom = vx*vx + vy*vy;
+                double t = denom == 0 ? 0.0 : ((localPos.getX() - wireStart.getX()) * vx + (localPos.getY() - wireStart.getY()) * vy) / denom;
+                t = Math.max(0.0, Math.min(1.0, t));
+                Point2D closest = new Point2D(wireStart.getX() + t * vx, wireStart.getY() + t * vy);
+                double dist = closest.distance(localPos);
+                Point2D finalPos = dist <= maxOffset ? localPos : new Point2D(
+                        closest.getX() + (localPos.getX() - closest.getX()) * (maxOffset / dist),
+                        closest.getY() + (localPos.getY() - closest.getY()) * (maxOffset / dist)
+                );
+
+                bendPoint.position = finalPos;
+                indicator.setCenterX(finalPos.getX()); indicator.setCenterY(finalPos.getY());
+                hitArea.setCenterX(finalPos.getX());   hitArea.setCenterY(finalPos.getY());
+                updateCurvesOnly();
+                reconcileBudgetAfterChange();
+                updateRunEligibility();
+            };
+
+            javafx.event.EventHandler<javafx.scene.input.MouseEvent> onReleased = e -> { e.consume(); dragging[0] = false; };
+            indicator.setOnMouseDragged(onDragged);
+            hitArea.setOnMouseDragged(onDragged);
+            indicator.setOnMouseReleased(onReleased);
+            hitArea.setOnMouseReleased(onReleased);
+        }
+
+        private boolean tryAddBendAt(Point2D scenePos) {
+            if (bends.size() >= 3) return false;
+            if (score.getCoins() <= 0) return false;
+            // spend 1 coin for new bend
+            score.addCoins(-1);
+            hud.setCoins(score.getCoins());
+            binder.syncFrom(hud);
+
+            Point2D mid = new Point2D(
+                    (baseLine.getStartX() + baseLine.getEndX()) * 0.5,
+                    (baseLine.getStartY() + baseLine.getEndY()) * 0.5
+            );
+            Point2D original = mid;
+            // place new bend along perpendicular to the line at mid for a visible default curve
+            Point2D start = new Point2D(baseLine.getStartX(), baseLine.getStartY());
+            Point2D end   = new Point2D(baseLine.getEndX(), baseLine.getEndY());
+            Point2D wireVec = end.subtract(start);
+            Point2D n = new Point2D(-wireVec.getY(), wireVec.getX());
+            if (n.magnitude() < 1e-6) n = new Point2D(0,1);
+            double desired = Math.min(bendRadius * 0.8, Math.max(60.0, accountedLength * 0.25));
+            Point2D dir = n.normalize().multiply(desired * (scenePos.getY() >= mid.getY() ? 1 : -1));
+            Point2D pos = original.add(dir);
+            // avoid overlapping handle positions by nudging if too close to existing
+            for (Bend b : bends) {
+                if (b.position.distance(pos) < 20) {
+                    pos = pos.add(0, Math.signum(pos.getY() - b.position.getY()) * 25);
+                    break;
+                }
+            }
+            bends.add(new Bend(original, pos));
+            rebuild();
+            return true;
+        }
+
+        private final class Bend {
+            final Point2D original;
+            Point2D position;
+            Circle indicator;
+            Circle hitArea;
+            Bend(Point2D original, Point2D position) { this.original = original; this.position = position; }
+        }
     }
 
 
@@ -962,7 +1525,7 @@ interface ShadowFactory { DropShadow get(); }
             pause.play();
         });
 
-        Button disablePacketLoss = bigShopButton("O’ Airyaman\n  (4 Coins)", 270, 420, 160, 80, "purple");
+        Button disablePacketLoss = bigShopButton("O' Airyaman\n  (4 Coins)", 270, 420, 160, 80, "purple");
         disablePacketLoss.setOnAction(e -> {
             score.addCoins(-4);
             hud.setCoins(score.getCoins());
@@ -1021,6 +1584,7 @@ interface ShadowFactory { DropShadow get(); }
 
     /* ------- درگ سیستم‌ها ------- */
     void enableDragSystem(Rectangle body, List<Node> connectors) {
+        bodies.add(body);
         final double[] anchor = new double[2];
         body.setOnMousePressed(e -> {
             anchor[0] = e.getSceneX();
@@ -1039,13 +1603,23 @@ interface ShadowFactory { DropShadow get(); }
             anchor[0] = e.getSceneX();
             anchor[1] = e.getSceneY();
             e.consume();
+            updateRunEligibility();
         });
     }
+
+    void registerStartButton(Button b) {
+        if (b != null && !startButtons.contains(b)) {
+            startButtons.add(b);
+            updateRunEligibility();
+        }
+    }
     private void moveNodeBy(Node n, double dx, double dy) {
-        if (n instanceof Circle c) {
+        if (n instanceof Circle) {
+            Circle c = (Circle) n;
             c.setCenterX(c.getCenterX() + dx);
             c.setCenterY(c.getCenterY() + dy);
-        } else if (n instanceof Rectangle r) {
+        } else if (n instanceof Rectangle) {
+            Rectangle r = (Rectangle) n;
             r.setX(r.getX() + dx);
             r.setY(r.getY() + dy);
         } else {
@@ -1065,16 +1639,97 @@ interface ShadowFactory { DropShadow get(); }
         } else {
             line.setStartX(p1.getX()); line.setStartY(p1.getY());
         }
+        WireView wv = wireViews.get(line);
+        if (wv != null) wv.rebuild();
     }
     public Point2D nodeCenterInScene(Node n) {
-        if (n instanceof Circle c) {
+        if (n instanceof Circle) {
+            Circle c = (Circle) n;
             return c.localToScene(c.getCenterX(), c.getCenterY());
-        } else if (n instanceof Rectangle r) {
+        } else if (n instanceof Rectangle) {
+            Rectangle r = (Rectangle) n;
             double cx = r.getX() + r.getWidth()/2;
             double cy = r.getY() + r.getHeight()/2;
             return r.localToScene(cx, cy);
         }
         return n.localToScene(n.getLayoutBounds().getCenterX(), n.getLayoutBounds().getCenterY());
+    }
+
+    private double lengthOfLine(Line l) {
+        double dx = l.getEndX() - l.getStartX();
+        double dy = l.getEndY() - l.getStartY();
+        return Math.hypot(dx, dy);
+    }
+
+    // Cleanup all connections and curved overlays (called on level change)
+    void cleanupConnectionsForLevelChange() {
+        for (Line line : repo.allLines()) {
+            WireView wv = wireViews.remove(line);
+            if (wv != null) {
+                double extra = Math.max(0.0, wv.getCurrentLength() - lengthOfLine(line));
+                wv.detach();
+                if (extra > 0) wireBudget.refund(extra);
+            }
+        }
+        repo.clear(root);
+        hud.setRemainingWire(wireBudget.remainingInt());
+        binder.syncFrom(hud);
+    }
+
+    void resetGuardsContext() {
+        bodies.clear();
+        startButtons.clear();
+    }
+
+    private boolean segmentIntersectsRect(Point2D a, Point2D b, Rectangle r) {
+        Bounds rb = r.localToScene(r.getBoundsInLocal());
+        double minX = rb.getMinX(), minY = rb.getMinY(), maxX = rb.getMaxX(), maxY = rb.getMaxY();
+        // quick reject: both points on one side
+        if (a.getX() < minX && b.getX() < minX) return false;
+        if (a.getX() > maxX && b.getX() > maxX) return false;
+        if (a.getY() < minY && b.getY() < minY) return false;
+        if (a.getY() > maxY && b.getY() > maxY) return false;
+        // if either point inside
+        if (a.getX() >= minX && a.getX() <= maxX && a.getY() >= minY && a.getY() <= maxY) return true;
+        if (b.getX() >= minX && b.getX() <= maxX && b.getY() >= minY && b.getY() <= maxY) return true;
+        // check segment against rectangle edges
+        Point2D tl = new Point2D(minX, minY), tr = new Point2D(maxX, minY);
+        Point2D bl = new Point2D(minX, maxY), br = new Point2D(maxX, maxY);
+        return segmentsIntersect(a, b, tl, tr) || segmentsIntersect(a, b, tr, br)
+                || segmentsIntersect(a, b, br, bl) || segmentsIntersect(a, b, bl, tl);
+    }
+
+    private boolean segmentsIntersect(Point2D a1, Point2D a2, Point2D b1, Point2D b2) {
+        double d1 = direction(b1, b2, a1);
+        double d2 = direction(b1, b2, a2);
+        double d3 = direction(a1, a2, b1);
+        double d4 = direction(a1, a2, b2);
+        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+        if (d1 == 0 && onSegment(b1, b2, a1)) return true;
+        if (d2 == 0 && onSegment(b1, b2, a2)) return true;
+        if (d3 == 0 && onSegment(a1, a2, b1)) return true;
+        if (d4 == 0 && onSegment(a1, a2, b2)) return true;
+        return false;
+    }
+
+    private double direction(Point2D a, Point2D b, Point2D c) {
+        return (b.getX() - a.getX()) * (c.getY() - a.getY()) - (b.getY() - a.getY()) * (c.getX() - a.getX());
+    }
+
+    private boolean onSegment(Point2D a, Point2D b, Point2D p) {
+        return Math.min(a.getX(), b.getX()) <= p.getX() && p.getX() <= Math.max(a.getX(), b.getX())
+                && Math.min(a.getY(), b.getY()) <= p.getY() && p.getY() <= Math.max(a.getY(), b.getY());
+    }
+
+    private void updateRunEligibility() {
+        // disable any visible Stage start buttons if any wire intersects any body
+        boolean anyInvalid = false;
+        for (Line l : repo.allLines()) {
+            WireView wv = wireViews.get(l);
+            if (wv == null) continue;
+            if (wv.isCurveIntersectingBodies()) { anyInvalid = true; break; }
+        }
+        for (Button b : startButtons) b.setDisable(anyInvalid);
     }
 
 
@@ -1123,12 +1778,23 @@ interface ShadowFactory { DropShadow get(); }
     void onStartWireFromCircle(MouseEvent e) {
         st.startCircle = (Circle) e.getSource();
         st.startSmallRect = null;
-        double refunded = repo.removeFor(st.startCircle, root);
+        double refunded = 0.0;
+        Line existing = repo.get(st.startCircle);
+        if (existing != null) {
+            WireView wv = wireViews.remove(existing);
+            if (wv != null) {
+                double extra = Math.max(0.0, wv.getCurrentLength() - lengthOfLine(existing));
+                wv.detach();
+                if (extra > 0) wireBudget.refund(extra);
+            }
+            refunded = repo.removeFor(st.startCircle, root);
+        }
         if (refunded > 0) {
             wireBudget.refund(refunded);
             hud.setRemainingWire(wireBudget.remainingInt());
             binder.syncFrom(hud);
         }
+        updateRunEligibility();
         Point2D p = st.startCircle.localToScene(st.startCircle.getCenterX(), st.startCircle.getCenterY());
         st.currentLine = new Line(p.getX(), p.getY(), e.getSceneX(), e.getSceneY());
         st.currentLine.setStrokeWidth(2);
@@ -1139,12 +1805,24 @@ interface ShadowFactory { DropShadow get(); }
     void onStartWireFromSmallRect(MouseEvent e) {
         st.startSmallRect = (Rectangle) e.getSource();
         st.startCircle = null;
-        double refunded = repo.removeFor(st.startSmallRect, root);
+        // If an existing connection exists, remove and refund including extra curved length
+        double refunded = 0.0;
+        Line existing = repo.get(st.startSmallRect);
+        if (existing != null) {
+            WireView wv = wireViews.remove(existing);
+            if (wv != null) {
+                double extra = Math.max(0.0, wv.getCurrentLength() - lengthOfLine(existing));
+                wv.detach();
+                if (extra > 0) wireBudget.refund(extra);
+            }
+            refunded = repo.removeFor(st.startSmallRect, root);
+        }
         if (refunded > 0) {
             wireBudget.refund(refunded);
             hud.setRemainingWire(wireBudget.remainingInt());
             binder.syncFrom(hud);
         }
+        updateRunEligibility();
         double cx = st.startSmallRect.getX() + st.startSmallRect.getWidth()/2;
         double cy = st.startSmallRect.getY() + st.startSmallRect.getHeight()/2;
         Point2D p = st.startSmallRect.localToScene(cx, cy);
@@ -1200,8 +1878,26 @@ interface ShadowFactory { DropShadow get(); }
             // ⬅️ قبل از هر چیز: اگر مقصد سیم قبلی داشت، حذفش کن و ریفاند بده
             double refundedTarget = 0.0;
             if (hitCircleTarget != null) {
+                Line old = repo.get(hitCircleTarget);
+                if (old != null) {
+                    WireView wv = wireViews.remove(old);
+                    if (wv != null) {
+                        double extra = Math.max(0.0, wv.getCurrentLength() - lengthOfLine(old));
+                        wv.detach();
+                        if (extra > 0) wireBudget.refund(extra);
+                    }
+                }
                 refundedTarget = repo.removeFor(hitCircleTarget, root);
             } else {
+                Line old = repo.get(hitRectTarget);
+                if (old != null) {
+                    WireView wv = wireViews.remove(old);
+                    if (wv != null) {
+                        double extra = Math.max(0.0, wv.getCurrentLength() - lengthOfLine(old));
+                        wv.detach();
+                        if (extra > 0) wireBudget.refund(extra);
+                    }
+                }
                 refundedTarget = repo.removeFor(hitRectTarget, root);
             }
             if (refundedTarget > 0) {
@@ -1230,6 +1926,12 @@ interface ShadowFactory { DropShadow get(); }
             } else {
                 repo.putPair(st.startSmallRect, hitRectTarget, st.currentLine, root);
             }
+
+            // attach curved overlay for new line
+            WireView wv = new WireView(st.currentLine);
+            wireViews.put(st.currentLine, wv);
+            wv.attach();
+            updateRunEligibility();
 
             // آپدیت HUD
             hud.setRemainingWire(wireBudget.remainingInt());
@@ -1469,78 +2171,29 @@ interface ShadowFactory { DropShadow get(); }
             Circle c1 = circles.get(0), c2 = circles.get(1);
             Rectangle r1 = smallRects.get(0), r2 = smallRects.get(1);
 
-            // مراکز برای مسیر مربع
-            double r1cx = r1.getX() + r1.getWidth()/2.0;
-            double r1cy = r1.getY() + r1.getHeight()/2.0;
-            double r2cx = r2.getX() + r2.getWidth()/2.0;
-            double r2cy = r2.getY() + r2.getHeight()/2.0;
-
-            // --- جریان مثلث: دو پاس؛ بین پاس‌ها ریست به شروع (سیستم 1) ---
-            Polygon steamTri = triangleMarkerAt(c1.getCenterX(), c1.getCenterY(), 12);
-            root.getChildren().add(steamTri);
-
-            TranslateTransition triPass1 = new TranslateTransition(Duration.seconds(2), steamTri);
-            triPass1.setByX(c2.getCenterX() - c1.getCenterX());
-            triPass1.setByY(c2.getCenterY() - c1.getCenterY());
-            triPass1.setOnFinished(ev -> {
-                // رسیدن مثلث در پاس اول → +3 سکه
+            // --- Triangle flow along the actual connected wire (twice) ---
+            FlowHandle tri1 = send(c1, c2);
+            onArrive(tri1, () -> {
                 awardCoins(3);
-                // ریست به شروع برای پاس دوم
-                steamTri.setTranslateX(0);
-                steamTri.setTranslateY(0);
-                steamTri.setLayoutX(c1.getCenterX());
-                steamTri.setLayoutY(c1.getCenterY());
-            });
-
-            TranslateTransition triPass2 = new TranslateTransition(Duration.seconds(2), steamTri);
-            triPass2.setByX(c2.getCenterX() - c1.getCenterX());
-            triPass2.setByY(c2.getCenterY() - c1.getCenterY());
-            triPass2.setOnFinished(ev -> {
-                // رسیدن مثلث در پاس دوم → +3 سکه
+                FlowHandle tri2 = send(c1, c2);
+                onArrive(tri2, () -> {
                 awardCoins(3);
-                steamTri.setVisible(false);
                 st.validSteam++;
                 if (st.validSteam == 2) onBothFinished.run();
             });
-
-            SequentialTransition triSeq = new SequentialTransition(triPass1, triPass2);
-
-            // --- جریان مربع: دو پاس؛ بین پاس‌ها ریست به شروع (سیستم 1) ---
-            Rectangle steamSquare = new Rectangle(r1cx - 6, r1cy - 6, 12, 12);
-            steamSquare.setFill(Color.YELLOW);
-            steamSquare.setStroke(Color.BLACK);
-            steamSquare.setStrokeWidth(1);
-            root.getChildren().add(steamSquare);
-
-            TranslateTransition sqPass1 = new TranslateTransition(Duration.seconds(2), steamSquare);
-            sqPass1.setByX(r2cx - r1cx);
-            sqPass1.setByY(r2cy - r1cy);
-            sqPass1.setOnFinished(ev -> {
-                // رسیدن مربع در پاس اول → +2 سکه
-                awardCoins(2);
-                // ریست به شروع برای پاس دوم
-                steamSquare.setTranslateX(0);
-                steamSquare.setTranslateY(0);
-                steamSquare.setX(r1cx - 6);
-                steamSquare.setY(r1cy - 6);
             });
 
-            TranslateTransition sqPass2 = new TranslateTransition(Duration.seconds(2), steamSquare);
-            sqPass2.setByX(r2cx - r1cx);
-            sqPass2.setByY(r2cy - r1cy);
-            sqPass2.setOnFinished(ev -> {
-                // رسیدن مربع در پاس دوم → +2 سکه
+            // --- Square flow along the actual connected wire (twice) ---
+            FlowHandle sq1 = send(r1, r2);
+            onArrive(sq1, () -> {
                 awardCoins(2);
-                steamSquare.setVisible(false);
+                FlowHandle sq2 = send(r1, r2);
+                onArrive(sq2, () -> {
+                    awardCoins(2);
                 st.validSteam++;
                 if (st.validSteam == 2) onBothFinished.run();
             });
-
-            SequentialTransition sqSeq = new SequentialTransition(sqPass1, sqPass2);
-
-            // اجرای همزمان دو جریان
-            triSeq.play();
-            sqSeq.play();
+            });
         }
     }
 
@@ -1650,6 +2303,49 @@ interface ShadowFactory { DropShadow get(); }
         nextLevelButton.setOnMouseExited(e -> nextLevelButton.setEffect(null));
         mainRoot.getChildren().add(nextLevelButton);
     }
+
+    // Resume a saved flow from progress in [0,1]
+    FlowHandle resumeSavedFlow(Node from, Node to, String tag, double progress01, double secondsTotal) {
+        Node realTo = connectedOf(from);
+        final Node dst = (realTo != null) ? realTo : to;
+
+        Point2D p1 = nodeCenterInScene(from);
+        Node sprite = makeSpriteForTag(tag, p1);
+        root.getChildren().add(sprite);
+
+        Animation anim = createFlowAnimation(from, dst, sprite, Math.max(0.1, secondsTotal), null);
+        try { anim.jumpTo(Duration.seconds(Math.max(0.0, Math.min(1.0, progress01)) * Math.max(0.1, secondsTotal))); } catch (Throwable ignored) {}
+
+        final Node spriteRef = sprite;
+        final FlowHandle handle = new FlowHandle(sprite, anim, from, dst);
+        activeFlows.add(handle);
+        anim.setOnFinished(e -> { if (spriteRef.getParent()!=null) root.getChildren().remove(spriteRef); activeFlows.remove(handle); });
+        anim.statusProperty().addListener((obs, o, n) -> { if (n == Animation.Status.STOPPED) { if (spriteRef.getParent()!=null) root.getChildren().remove(spriteRef); activeFlows.remove(handle); }});
+        anim.play();
+        return handle;
+    }
+
+    // Export active flows as packet save data without exposing internal types
+    public java.util.List<PacketSaveData> exportActivePackets(java.util.Map<Node, String> nodeToId) {
+        java.util.List<PacketSaveData> out = new java.util.ArrayList<>();
+        for (FlowHandle fh : activeFlows) {
+            PacketSaveData ps = new PacketSaveData();
+            ps.tag = String.valueOf(fh.sprite.getUserData());
+            ps.fromId = nodeToId.getOrDefault(fh.from, null);
+            ps.toId = nodeToId.getOrDefault(fh.to, null);
+            if (fh.anim instanceof javafx.animation.Transition) {
+                javafx.animation.Transition t = (javafx.animation.Transition) fh.anim;
+                double total = Math.max(0.0001, t.getCycleDuration().toSeconds());
+                ps.secondsTotal = total;
+                ps.progress01 = Math.min(1.0, Math.max(0.0, t.getCurrentTime().toSeconds() / total));
+            } else {
+                ps.secondsTotal = 1.0;
+                ps.progress01 = 0.0;
+            }
+            out.add(ps);
+        }
+        return out;
+    }
 }
 
 /* =========================================================
@@ -1696,6 +2392,10 @@ final class LevelManager {
     private final Map<Integer, Level> levels = new HashMap<>();
     private Level current;
     private int currentId = -1;
+    
+    // Save/Load managers
+    private final SaveManager saveManager;
+    private final AutosaveManager autosaveManager;
 
     LevelManager(Stage stage, Pane root, Group levelLayer,
                  GameController controller, Slider timeSlider,
@@ -1705,6 +2405,10 @@ final class LevelManager {
         this.controller=controller; this.timeSlider=timeSlider;
         this.wireBudget=wireBudget; this.score=score; this.hud=hud; this.binder=binder;
         this.repo=repo; this.st=st; this.menuScene=menuScene;
+        
+        // Initialize save managers
+        this.saveManager = new SaveManager();
+        this.autosaveManager = new AutosaveManager(saveManager);
     }
 
     void register(int id, Level level) { levels.put(id, level); }
@@ -1715,11 +2419,112 @@ final class LevelManager {
         Level lvl = levels.get(id);
         if (lvl == null) return;
         current = lvl; currentId = id;
+        // Persist current level id in HUD/state for snapshot
+        try { st.setCurrentLevelNumber(id); } catch (Throwable ignored) {}
+        
+        String levelId = "level-" + id;
+        String profileId = new PlayerManager().getActiveProfileId();
+        
+        // Load normal save if present
+        Optional<SaveData> normalSave = saveManager.loadGame(profileId, levelId);
 
+        // Check for crash autosave and prompt ONLY if it's newer than normal save
+        Optional<SaveData> autosave = autosaveManager.checkForAutosave(levelId);
+        boolean shouldOfferResume = false;
+        if (autosave.isPresent()) {
+            long autoTs = autosave.get().savedAtEpochMillis;
+            long normalTs = normalSave.map(s -> s.savedAtEpochMillis).orElse(0L);
+            if (autoTs > normalTs + 250) { // newer by >250ms => likely crash
+                shouldOfferResume = true;
+            } else {
+                // Autosave stale or redundant -> remove silently
+                autosaveManager.deleteAutosave(levelId);
+            }
+        }
+
+        if (shouldOfferResume) {
+            boolean resume = autosaveManager.showResumePrompt(autosave.get());
+            if (resume) {
+                loadLevelWithSave(lvl, autosave.get(), true);
+                autosaveManager.deleteAutosave(levelId);
+                return;
+            } else {
+                autosaveManager.deleteAutosave(levelId);
+            }
+        }
+
+        if (normalSave.isPresent()) {
+            loadLevelWithSave(lvl, normalSave.get(), false);
+        } else {
+            startFreshLevel(lvl);
+        }
+    }
+    
+    private void loadLevelWithSave(Level lvl, SaveData save, boolean isAutosave) {
+        // Apply basic state before creating view
+        saveManager.applyBasicState(save, st, wireBudget, score);
+        
+        LevelView v = lvl.build();
+        levelLayer.getChildren().add(v.group);
+        
+        controller.bindStageRefs(v.circles, v.smallRects, timeSlider);
+        controller.registerStartButton(v.startButton);
+        
+        // Create node ID map for restoration
+        Map<String, Node> nodeMap = createNodeMap(v, save.levelData);
+        
+        // Restore connections after view exists
+        saveManager.restoreConnections(save, repo, controller, root, nodeMap);
+        
+        // Bind level logic
+        lvl.bind(controller, timeSlider, () -> showBetweenWin(currentId + 1));
+
+        // Refresh HUD to match restored state
+        try {
+            hud.setRemainingWire(wireBudget.remainingInt());
+            hud.setPacketLoss(score.getPacketLoss());
+            hud.setCoins(score.getCoins());
+            hud.setTimeValue(st.getCurrentTime());
+            binder.syncFrom(hud);
+        } catch (Throwable ignored) {}
+        
+        // If autosave, show frozen preview
+        if (isAutosave) {
+            autosaveManager.showFrozenPreview(stage.getScene(), save, () -> {
+                // Start autosave after preview
+                startAutosave();
+            });
+        } else {
+            startAutosave();
+        }
+
+        // If game was already started, resume flow generation
+        try {
+            if (save.levelData != null && save.levelData.gameStarted) {
+                boolean hasPackets = (save.levelData.packets != null && !save.levelData.packets.isEmpty());
+                
+                // For level 1: check if we need to continue sending flows
+                if (currentId == 1 && save.levelData.flowState != null) {
+                    FlowStateSave fs = save.levelData.flowState;
+                    // If we haven't completed both flows and no packets are mid-flight, continue
+                    if (st.validSteam < 2 && !hasPackets && v.startButton != null) {
+                        // Resume flow generation by firing start button
+                        v.startButton.fire();
+                    }
+                } else if (!hasPackets && v.startButton != null) {
+                    // For other levels, auto-fire start if no packets mid-flight
+                    v.startButton.fire();
+                }
+            }
+        } catch (Throwable ignored) {}
+    }
+    
+    private void startFreshLevel(Level lvl) {
         LevelView v = lvl.build();
         levelLayer.getChildren().add(v.group);
 
         controller.bindStageRefs(v.circles, v.smallRects, timeSlider);
+        controller.registerStartButton(v.startButton);
 
         // فعال‌سازی درگ هر سیستم
         for (int i=0;i<v.bodies.size();i++) {
@@ -1729,14 +2534,64 @@ final class LevelManager {
             // (این را Level داخل bind خودش مشخص می‌کند؛ اینجا فقط پشتیبانی عمومی داریم)
         }
 
-        lvl.bind(controller, timeSlider, () -> showBetweenWin(id + 1));
+        lvl.bind(controller, timeSlider, () -> showBetweenWin(currentId + 1));
+        
+        // Start autosave
+        startAutosave();
+    }
+    
+    private Map<String, Node> createNodeMap(LevelView v, LevelSaveData saveData) {
+        Map<String, Node> nodeMap = new HashMap<>();
+        
+        // Map circles by index
+        for (NodeSaveData nodeData : saveData.nodes) {
+            if ("CIRCLE".equals(nodeData.type) && nodeData.index < v.circles.size()) {
+                nodeMap.put(nodeData.id, v.circles.get(nodeData.index));
+            } else if ("SMALL_RECT".equals(nodeData.type) && nodeData.index < v.smallRects.size()) {
+                nodeMap.put(nodeData.id, v.smallRects.get(nodeData.index));
+            }
+        }
+        
+        return nodeMap;
+    }
+    
+    private void startAutosave() {
+        if (currentId > 0) {
+            String levelId = "level-" + currentId;
+            // More precise live-save: every 1.0 second
+            autosaveManager.startAutosave(levelId, st, wireBudget, score, repo, controller, 1.0);
+        }
+    }
+
+    // Save current level if running (used on app close)
+    void forceSaveIfPlaying() {
+        if (currentId > 0 && current != null) {
+            String levelId = "level-" + currentId;
+            String profileId = new PlayerManager().getActiveProfileId();
+            saveManager.saveGame(profileId, levelId, st, wireBudget, score, repo, controller);
+            autosaveManager.stopAutosave();
+            // Graceful shutdown: remove autosave so no crash prompt next launch
+            autosaveManager.deleteAutosave(levelId);
+        }
     }
 
     private void unmountCurrent() {
+        // Save current level before unmounting
+        if (currentId > 0 && current != null) {
+            String levelId = "level-" + currentId;
+            String profileId = new PlayerManager().getActiveProfileId();
+            saveManager.saveGame(profileId, levelId, st, wireBudget, score, repo, controller);
+            autosaveManager.stopAutosave();
+            autosaveManager.deleteAutosave(levelId); // Clean up autosave when switching levels
+        }
+        
         // پاکسازی UI مرحله‌ی قبل
-        repo.clear(root);
+        controller.cleanupConnectionsForLevelChange();
         root.getChildren().removeIf(n -> n.getUserData() != null && "preview".equals(n.getUserData()));
         st.previewNodes.clear();
+
+        // reset guards context
+        controller.resetGuardsContext();
 
         if (current != null && current.getView() != null) {
             levelLayer.getChildren().remove(current.getView().group);
@@ -1758,8 +2613,63 @@ final class LevelManager {
         binder.syncFrom(hud);
     }
 
+    /**
+     * Start a new game by clearing all saves and starting from level 1
+     */
+    void startNewGame() {
+        // Clear all saves for the current profile
+        String profileId = new PlayerManager().getActiveProfileId();
+        List<String> savedLevels = saveManager.listSavedLevels(profileId);
+        
+        for (String levelId : savedLevels) {
+            saveManager.deleteSave(profileId, levelId);
+        }
+        
+        // Clear all autosaves as well
+        autosaveManager.deleteAllAutosaves();
+        
+        // Show starting message
+        Platform.runLater(() -> {
+            Alert startAlert = new Alert(Alert.AlertType.INFORMATION);
+            startAlert.setTitle("New Game Started");
+            startAlert.setHeaderText("Starting Fresh!");
+            startAlert.setContentText("All previous saves have been cleared.\nStarting new game from Level 1.");
+            startAlert.show();
+            
+            // Auto-close after 2 seconds
+            Timeline autoClose = new Timeline(new KeyFrame(Duration.seconds(2), e -> startAlert.close()));
+            autoClose.play();
+        });
+        
+        // Start from level 1 fresh
+        goToFresh(1);
+    }
+
+    /**
+     * Go to a level without loading any saves (force fresh start)
+     */
+    void goToFresh(int id) {
+        unmountCurrent();
+
+        Level lvl = levels.get(id);
+        if (lvl == null) return;
+        current = lvl; currentId = id;
+        // Persist current level id in HUD/state for snapshot
+        try { st.setCurrentLevelNumber(id); } catch (Throwable ignored) {}
+        
+        // Start fresh regardless of existing saves
+        startFreshLevel(lvl);
+    }
+
     /* بین مرحله 1 و 2 همان پنجره‌ی Win قبلی با Next Level */
     private void showBetweenWin(int nextId){
+        // Save immediately when completing a level so next level is remembered
+        if (currentId > 0 && current != null) {
+            String levelId = "level-" + currentId;
+            String profileId = new PlayerManager().getActiveProfileId();
+            saveManager.saveGame(profileId, levelId, st, wireBudget, score, repo, controller);
+        }
+        
 //        score.addCoins(4);
         hud.setCoins(score.getCoins());
         binder.syncFrom(hud);
@@ -2783,7 +3693,10 @@ final class Level4 implements Level {
                     if (hexLeftSurvived.get()) {
                         c.addPacketLoss(1);
                     }
-                    if (hexL.getParent() instanceof Group g) g.getChildren().remove(hexL);
+                    if (hexL.getParent() instanceof Group) {
+                        Group g = (Group) hexL.getParent();
+                        g.getChildren().remove(hexL);
+                    }
                     hexDone.set(true);
                     if (leftPairDone.get()) {
                         startRightPhase.accept(hexLeftSurvived.get());

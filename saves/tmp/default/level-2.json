@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "profileId": "default",
+  "levelId": "level-2",
+  "savedAtEpochMillis": 1756662094250,
+  "levelData": {
+    "paused": false,
+    "gameOver": false,
+    "gameStarted": false,
+    "currentTime": 0.0,
+    "coins": 0,
+    "remainingWireLength": 656.2447398413822,
+    "packetLoss": 0,
+    "circlesConnected": false,
+    "rectsConnected": false,
+    "suppressImpact": false,
+    "suppressPacketLoss": false,
+    "nodes": [
+      {
+        "id": "circle_0",
+        "type": "CIRCLE",
+        "x": 270.4,
+        "y": 287.6,
+        "width": 0.0,
+        "height": 0.0,
+        "radius": 10.0,
+        "color": "#90EE90",
+        "index": 0
+      },
+      {
+        "id": "circle_1",
+        "type": "CIRCLE",
+        "x": 380.0,
+        "y": 420.0,
+        "width": 0.0,
+        "height": 0.0,
+        "radius": 10.0,
+        "color": "#90EE90",
+        "index": 1
+      },
+      {
+        "id": "circle_2",
+        "type": "CIRCLE",
+        "x": 480.0,
+        "y": 510.0,
+        "width": 0.0,
+        "height": 0.0,
+        "radius": 10.0,
+        "color": "#90EE90",
+        "index": 2
+      },
+      {
+        "id": "circle_3",
+        "type": "CIRCLE",
+        "x": 610.0,
+        "y": 290.0,
+        "width": 0.0,
+        "height": 0.0,
+        "radius": 10.0,
+        "color": "#90EE90",
+        "index": 3
+      },
+      {
+        "id": "smallrect_0",
+        "type": "SMALL_RECT",
+        "x": 265.4,
+        "y": 367.6,
+        "width": 10.0,
+        "height": 20.0,
+        "radius": 0.0,
+        "color": "#008000",
+        "index": 0
+      },
+      {
+        "id": "smallrect_1",
+        "type": "SMALL_RECT",
+        "x": 375.0,
+        "y": 500.0,
+        "width": 10.0,
+        "height": 20.0,
+        "radius": 0.0,
+        "color": "#008000",
+        "index": 1
+      },
+      {
+        "id": "smallrect_2",
+        "type": "SMALL_RECT",
+        "x": 475.0,
+        "y": 410.0,
+        "width": 10.0,
+        "height": 20.0,
+        "radius": 0.0,
+        "color": "#008000",
+        "index": 2
+      },
+      {
+        "id": "smallrect_3",
+        "type": "SMALL_RECT",
+        "x": 605.0,
+        "y": 370.0,
+        "width": 10.0,
+        "height": 20.0,
+        "radius": 0.0,
+        "color": "#008000",
+        "index": 3
+      },
+      {
+        "id": "body_0",
+        "type": "BODY_RECT",
+        "x": 380.0,
+        "y": 380.0,
+        "width": 100.0,
+        "height": 200.0,
+        "radius": 0.0,
+        "color": "#FF7F50",
+        "index": 0
+      },
+      {
+        "id": "body_1",
+        "type": "BODY_RECT",
+        "x": 610.0,
+        "y": 250.0,
+        "width": 100.0,
+        "height": 200.0,
+        "radius": 0.0,
+        "color": "#FF7F50",
+        "index": 1
+      },
+      {
+        "id": "body_2",
+        "type": "BODY_RECT",
+        "x": 170.4,
+        "y": 247.60000000000002,
+        "width": 100.0,
+        "height": 200.0,
+        "radius": 0.0,
+        "color": "#FF7F50",
+        "index": 2
+      }
+    ],
+    "connections": [
+      {
+        "node1Id": "circle_1",
+        "node2Id": "circle_0",
+        "lineStartX": 270.3999938964844,
+        "lineStartY": 287.6000061035156,
+        "lineEndX": 380.0,
+        "lineEndY": 420.0
+      },
+      {
+        "node1Id": "smallrect_1",
+        "node2Id": "smallrect_0",
+        "lineStartX": 270.3999938964844,
+        "lineStartY": 377.6000061035156,
+        "lineEndX": 380.0,
+        "lineEndY": 510.0
+      }
+    ],
+    "wireViews": [],
+    "packets": [],
+    "flowState": {
+      "triangleFlowsSent": 0,
+      "squareFlowsSent": 0,
+      "level1Complete": false,
+      "validSteam": 0,
+      "packetsGenerated": 0,
+      "packetsToGenerate": 0
+    }
+  },
+  "currentLevelNumber": 2
+}

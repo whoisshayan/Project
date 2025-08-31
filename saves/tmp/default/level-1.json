@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "profileId": "default",
+  "levelId": "level-1",
+  "savedAtEpochMillis": 1756662975957,
+  "levelData": {
+    "paused": false,
+    "gameOver": false,
+    "gameStarted": true,
+    "currentTime": 0.0,
+    "coins": 0,
+    "remainingWireLength": 496.90495155146095,
+    "packetLoss": 0,
+    "circlesConnected": true,
+    "rectsConnected": true,
+    "suppressImpact": false,
+    "suppressPacketLoss": false,
+    "nodes": [
+      {
+        "id": "circle_0",
+        "type": "CIRCLE",
+        "x": 249.6,
+        "y": 314.0,
+        "width": 0.0,
+        "height": 0.0,
+        "radius": 10.0,
+        "color": "#90EE90",
+        "index": 0
+      },
+      {
+        "id": "circle_1",
+        "type": "CIRCLE",
+        "x": 500.0,
+        "y": 290.0,
+        "width": 0.0,
+        "height": 0.0,
+        "radius": 10.0,
+        "color": "#90EE90",
+        "index": 1
+      },
+      {
+        "id": "smallrect_0",
+        "type": "SMALL_RECT",
+        "x": 244.60000000000002,
+        "y": 394.0,
+        "width": 10.0,
+        "height": 20.0,
+        "radius": 0.0,
+        "color": "#008000",
+        "index": 0
+      },
+      {
+        "id": "smallrect_1",
+        "type": "SMALL_RECT",
+        "x": 495.0,
+        "y": 370.0,
+        "width": 10.0,
+        "height": 20.0,
+        "radius": 0.0,
+        "color": "#008000",
+        "index": 1
+      },
+      {
+        "id": "body_0",
+        "type": "BODY_RECT",
+        "x": 149.6,
+        "y": 274.0,
+        "width": 100.0,
+        "height": 200.0,
+        "radius": 0.0,
+        "color": "#FF7F50",
+        "index": 0
+      },
+      {
+        "id": "body_1",
+        "type": "BODY_RECT",
+        "x": 500.0,
+        "y": 250.0,
+        "width": 100.0,
+        "height": 200.0,
+        "radius": 0.0,
+        "color": "#FF7F50",
+        "index": 1
+      }
+    ],
+    "connections": [
+      {
+        "node1Id": "circle_1",
+        "node2Id": "circle_0",
+        "lineStartX": 249.60000610351562,
+        "lineStartY": 314.0,
+        "lineEndX": 500.0,
+        "lineEndY": 290.0
+      },
+      {
+        "node1Id": "smallrect_0",
+        "node2Id": "smallrect_1",
+        "lineStartX": 249.60000610351562,
+        "lineStartY": 404.0,
+        "lineEndX": 500.0,
+        "lineEndY": 380.0
+      }
+    ],
+    "wireViews": [],
+    "packets": [
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.983,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.9824166666666666,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.9408333333333334,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.9405833333333333,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.8876666666666666,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.8873333333333334,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.8155,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.81525,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.7425833333333334,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.7423333333333334,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.6635833333333334,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.66325,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.5775,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.5771666666666666,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.5275,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.51175,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.5115833333333333,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.42383333333333334,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.4236666666666667,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.3515,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.3510833333333333,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.2795833333333333,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.2793333333333333,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.18316666666666664,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.183,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.10616666666666667,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.106,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "circle_0",
+        "toId": "circle_1",
+        "progress01": 0.015666666666666666,
+        "secondsTotal": 2.0
+      },
+      {
+        "tag": "FLOW_SPRITE",
+        "fromId": "smallrect_0",
+        "toId": "smallrect_1",
+        "progress01": 0.015416666666666665,
+        "secondsTotal": 2.0
+      }
+    ],
+    "flowState": {
+      "triangleFlowsSent": 0,
+      "squareFlowsSent": 0,
+      "level1Complete": false,
+      "validSteam": 4,
+      "packetsGenerated": 0,
+      "packetsToGenerate": 0
+    }
+  },
+  "currentLevelNumber": 1
+}

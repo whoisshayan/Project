@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "profileId": "default",
+  "levelId": "level-1",
+  "savedAtEpochMillis": 1756662069951,
+  "levelData": {
+    "paused": false,
+    "gameOver": false,
+    "gameStarted": false,
+    "currentTime": 0.0,
+    "coins": 0,
+    "remainingWireLength": 600.0,
+    "packetLoss": 0,
+    "circlesConnected": true,
+    "rectsConnected": true,
+    "suppressImpact": false,
+    "suppressPacketLoss": false,
+    "nodes": [
+      {
+        "id": "circle_0",
+        "type": "CIRCLE",
+        "x": 300.0,
+        "y": 290.0,
+        "width": 0.0,
+        "height": 0.0,
+        "radius": 10.0,
+        "color": "#90EE90",
+        "index": 0
+      },
+      {
+        "id": "circle_1",
+        "type": "CIRCLE",
+        "x": 500.0,
+        "y": 290.0,
+        "width": 0.0,
+        "height": 0.0,
+        "radius": 10.0,
+        "color": "#90EE90",
+        "index": 1
+      },
+      {
+        "id": "smallrect_0",
+        "type": "SMALL_RECT",
+        "x": 295.0,
+        "y": 370.0,
+        "width": 10.0,
+        "height": 20.0,
+        "radius": 0.0,
+        "color": "#008000",
+        "index": 0
+      },
+      {
+        "id": "smallrect_1",
+        "type": "SMALL_RECT",
+        "x": 495.0,
+        "y": 370.0,
+        "width": 10.0,
+        "height": 20.0,
+        "radius": 0.0,
+        "color": "#008000",
+        "index": 1
+      },
+      {
+        "id": "body_0",
+        "type": "BODY_RECT",
+        "x": 500.0,
+        "y": 250.0,
+        "width": 100.0,
+        "height": 200.0,
+        "radius": 0.0,
+        "color": "#FF7F50",
+        "index": 0
+      },
+      {
+        "id": "body_1",
+        "type": "BODY_RECT",
+        "x": 200.0,
+        "y": 250.0,
+        "width": 100.0,
+        "height": 200.0,
+        "radius": 0.0,
+        "color": "#FF7F50",
+        "index": 1
+      }
+    ],
+    "connections": [
+      {
+        "node1Id": "smallrect_0",
+        "node2Id": "smallrect_1",
+        "lineStartX": 300.0,
+        "lineStartY": 380.0,
+        "lineEndX": 500.0,
+        "lineEndY": 380.0
+      },
+      {
+        "node1Id": "circle_0",
+        "node2Id": "circle_1",
+        "lineStartX": 300.0,
+        "lineStartY": 290.0,
+        "lineEndX": 500.0,
+        "lineEndY": 290.0
+      }
+    ],
+    "wireViews": [],
+    "packets": [],
+    "flowState": {
+      "triangleFlowsSent": 0,
+      "squareFlowsSent": 0,
+      "level1Complete": false,
+      "validSteam": 2,
+      "packetsGenerated": 0,
+      "packetsToGenerate": 0
+    }
+  },
+  "currentLevelNumber": 1
+}
